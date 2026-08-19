@@ -64,9 +64,9 @@ struct MenuView: View {
 
             HStack {
                 Text("Rival")
-                TextField("github username", text: $state.rivalUsername)
+                TextField("github username", text: $state.rivalDraft)
                     .textFieldStyle(.roundedBorder)
-                    .onSubmit { state.setRival(state.rivalUsername) }
+                    .onSubmit { state.setRival(state.rivalDraft) }
             }
             if !state.rivalUsername.isEmpty {
                 Text(state.raceHeadline)

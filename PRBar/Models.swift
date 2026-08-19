@@ -115,8 +115,10 @@ enum WeekMath {
 
 enum RivalMath {
     static func cleaned(_ raw: String) -> String {
-        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-"))
+        return String(trimmed.unicodeScalars.filter { allowed.contains($0) })
     }
 
     static func headline(you: Int, them: Int, rival: String) -> String {

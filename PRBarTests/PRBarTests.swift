@@ -156,6 +156,7 @@ final class WeekMathTests: XCTestCase {
 final class RivalMathTests: XCTestCase {
     func testCleansAtAndSpaces() {
         XCTAssertEqual(RivalMath.cleaned("  @IonPop  "), "IonPop")
+        XCTAssertEqual(RivalMath.cleaned("bad name!"), "badname")
     }
 
     func testHeadlineStates() {

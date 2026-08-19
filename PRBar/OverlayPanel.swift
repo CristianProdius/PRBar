@@ -24,7 +24,9 @@ final class ClearHostingView<Content: View>: NSHostingView<Content> {
 }
 
 final class OverlayPanel: NSPanel {
-    static let panelSize = NSSize(width: 400, height: 340)
+    static let cardWidth: CGFloat = 380
+    static let compactSize = NSSize(width: 380, height: 46)
+    static let expandedSize = NSSize(width: 380, height: 292)
 
     private var hostingView: ClearHostingView<OverlayView>?
     private let state: AppState
@@ -32,7 +34,7 @@ final class OverlayPanel: NSPanel {
 
     init(state: AppState) {
         self.state = state
-        let rect = NSRect(origin: .zero, size: Self.panelSize)
+        let rect = NSRect(origin: .zero, size: Self.compactSize)
         super.init(
             contentRect: rect,
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
@@ -52,7 +54,7 @@ final class OverlayPanel: NSPanel {
         isMovableByWindowBackground = true
         hidesOnDeactivate = false
         animationBehavior = .none
-        setContentSize(Self.panelSize)
+        setContentSize(Self.compactSize)
 
         let hosting = ClearHostingView(rootView: OverlayView(state: state))
         hosting.wantsLayer = true
@@ -71,9 +73,14 @@ final class OverlayPanel: NSPanel {
         refreshTracking()
     }
 
-    func fitContent() {
-        setContentSize(Self.panelSize)
-        hostingView?.frame = NSRect(origin: .zero, size: Self.panelSize)
+    func applyCardSize(expanded: Bool) {
+        let size = expanded ? Self.expandedSize : Self.compactSize
+        var next = frame
+        let top = next.maxY
+        next.size = size
+        next.origin.y = top - size.height
+        setFrame(next, display: true, animate: false)
+        hostingView?.frame = NSRect(origin: .zero, size: size)
         refreshTracking()
     }
 
@@ -113,6 +120,7 @@ final class OverlayPanel: NSPanel {
 
         menu.popUp(positioning: nil, at: mousePointInHostingView(), in: hostingView)
         state.menuOpen = false
+        applyCardSize(expanded: state.isHovered)
         updateHoverFromMouse()
     }
 
@@ -124,12 +132,13 @@ final class OverlayPanel: NSPanel {
     @objc private func overflowQuit() { state.quit() }
 
     private func mousePointInHostingView() -> NSPoint {
-        guard let hostingView else { return NSPoint(x: 376, y: 260) }
+        guard let hostingView else { return NSPoint(x: 360, y: 24) }
         return hostingView.convert(mouseLocationOutsideOfEventStream, from: nil)
     }
 
     func resetToMouseScreen() {
         state.hudOrigin = nil
+        applyCardSize(expanded: state.isHovered || state.menuOpen)
         centerOnMouseScreen()
         orderFrontRegardless()
     }
@@ -137,6 +146,7 @@ final class OverlayPanel: NSPanel {
     func applyVisibility(_ visible: Bool) {
         if visible {
             restorePosition()
+            applyCardSize(expanded: state.isHovered || state.menuOpen)
             orderFrontRegardless()
         } else {
             orderOut(nil)
@@ -149,8 +159,9 @@ final class OverlayPanel: NSPanel {
     private func centerOnMouseScreen() {
         let screen = Self.screenUnderMouse()
         let visible = screen.visibleFrame
-        let x = visible.midX - Self.panelSize.width / 2
-        let y = visible.maxY - Self.panelSize.height - 8
+        let size = frame.size
+        let x = visible.midX - size.width / 2
+        let y = visible.maxY - size.height - 8
         setFrameOrigin(NSPoint(x: x, y: y))
     }
 
@@ -166,18 +177,16 @@ final class OverlayPanel: NSPanel {
             ?? NSScreen.screens[0]
     }
 
-    private func cardRect() -> NSRect {
-        let expanded = state.isHovered || state.menuOpen
-        let height: CGFloat = expanded ? 328 : 48
-        return NSRect(x: 0, y: Self.panelSize.height - height, width: Self.panelSize.width, height: height)
-    }
-
     private func updateHoverFromMouse() {
         let point = mousePointInHostingView()
-        let inside = cardRect().insetBy(dx: -4, dy: -4).contains(point)
+        let hit = hostingView?.bounds.insetBy(dx: -6, dy: -6) ?? NSRect(origin: .zero, size: frame.size)
+        let inside = hit.contains(point)
         if inside {
             collapseTask?.cancel()
-            if !state.isHovered { state.isHovered = true }
+            if !state.isHovered {
+                state.isHovered = true
+                applyCardSize(expanded: true)
+            }
         } else if !state.menuOpen {
             scheduleCollapse()
         }
@@ -186,11 +195,13 @@ final class OverlayPanel: NSPanel {
     private func scheduleCollapse() {
         collapseTask?.cancel()
         collapseTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 180_000_000)
+            try? await Task.sleep(nanoseconds: 220_000_000)
             guard let self, !Task.isCancelled, !self.state.menuOpen else { return }
             let point = self.mousePointInHostingView()
-            if self.cardRect().insetBy(dx: -4, dy: -4).contains(point) { return }
+            let hit = self.hostingView?.bounds.insetBy(dx: -6, dy: -6) ?? NSRect(origin: .zero, size: self.frame.size)
+            if hit.contains(point) { return }
             self.state.isHovered = false
+            self.applyCardSize(expanded: false)
         }
     }
 
@@ -207,18 +218,10 @@ final class OverlayPanel: NSPanel {
         )
     }
 
-    override func mouseEntered(with event: NSEvent) {
-        updateHoverFromMouse()
-    }
-
-    override func mouseMoved(with event: NSEvent) {
-        updateHoverFromMouse()
-    }
-
+    override func mouseEntered(with event: NSEvent) { updateHoverFromMouse() }
+    override func mouseMoved(with event: NSEvent) { updateHoverFromMouse() }
     override func mouseExited(with event: NSEvent) {
-        if !state.menuOpen {
-            scheduleCollapse()
-        }
+        if !state.menuOpen { scheduleCollapse() }
     }
 
     override func mouseUp(with event: NSEvent) {

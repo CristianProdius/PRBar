@@ -23,10 +23,29 @@ enum GitHubClientError: LocalizedError, Equatable {
     }
 }
 
+final class TokenCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var token: String?
+    private var cachedAt: Date?
+
+    func current(load: () throws -> String) throws -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        if let token, let cachedAt, Date().timeIntervalSince(cachedAt) < 240 {
+            return token
+        }
+        let fresh = try load()
+        self.token = fresh
+        self.cachedAt = Date()
+        return fresh
+    }
+}
+
 struct GitHubClient: Sendable {
     var tokenProvider: @Sendable () throws -> String = GitHubClient.readTokenFromGH
     var session: URLSession = .shared
     var endpoint: URL = URL(string: "https://api.github.com/graphql")!
+    var tokenCache = TokenCache()
 
     func viewerLogin() async throws -> String {
         let data = try await graphql("query { viewer { login } }")
@@ -141,7 +160,7 @@ struct GitHubClient: Sendable {
     }
 
     private func graphql(_ query: String) async throws -> Data {
-        let token = try tokenProvider()
+        let token = try tokenCache.current(load: tokenProvider)
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("bearer \(token)", forHTTPHeaderField: "Authorization")

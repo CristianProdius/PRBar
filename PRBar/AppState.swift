@@ -13,16 +13,8 @@ final class AppState: ObservableObject {
     @Published private(set) var rivalPRs: [MergedPR] = []
     @Published private(set) var weekDays: [WeekDay] = WeekMath.days(prs: [])
     @Published private(set) var username: String
-    @Published var rivalUsername: String {
-        didSet {
-            let cleaned = RivalMath.cleaned(rivalUsername)
-            if cleaned != rivalUsername {
-                rivalUsername = cleaned
-                return
-            }
-            UserDefaults.standard.set(cleaned, forKey: Keys.rival)
-        }
-    }
+    @Published private(set) var rivalUsername: String
+    @Published var rivalDraft: String
     @Published private(set) var lastUpdated: Date?
     @Published private(set) var lastError: String?
     @Published private(set) var isLoading = false
@@ -80,7 +72,9 @@ final class AppState: ObservableObject {
         let storedGoal = UserDefaults.standard.object(forKey: Keys.goal) as? Int ?? 50
         self.goal = ProgressMath.clampGoal(storedGoal)
         self.username = UserDefaults.standard.string(forKey: Keys.username) ?? ""
-        self.rivalUsername = RivalMath.cleaned(UserDefaults.standard.string(forKey: Keys.rival) ?? "")
+        let storedRival = RivalMath.cleaned(UserDefaults.standard.string(forKey: Keys.rival) ?? "")
+        self.rivalUsername = storedRival
+        self.rivalDraft = storedRival
         self.hudVisible = UserDefaults.standard.object(forKey: Keys.hudVisible) as? Bool ?? true
         self.hideInFullscreen = UserDefaults.standard.bool(forKey: Keys.hideInFullscreen)
         self.soundEnabled = UserDefaults.standard.bool(forKey: Keys.soundEnabled)
@@ -113,7 +107,6 @@ final class AppState: ObservableObject {
     }
 
     func refresh() async {
-        if isLoading { return }
         isLoading = true
         defer { isLoading = false }
 
@@ -130,17 +123,10 @@ final class AppState: ObservableObject {
             let open = try await openTask
             let today = DayWindow.local()
             let next = weekPRs.filter { today.contains($0.mergedAt) }
-            var rivalToday: [MergedPR] = []
-            let rival = RivalMath.cleaned(rivalUsername)
-            if !rival.isEmpty {
-                let rivalWeek = try await client.mergedPRs(author: rival, window: week)
-                rivalToday = rivalWeek.filter { today.contains($0.mergedAt) }
-            }
             let grew = next.count > prs.count && lastUpdated != nil
             let crossedGoal = lastUpdated != nil && prs.count < goal && next.count >= goal
             prs = next
             openPRs = Array(open.prefix(8))
-            rivalPRs = rivalToday
             weekDays = WeekMath.days(prs: weekPRs)
             lastError = nil
             lastUpdated = Date()
@@ -150,6 +136,18 @@ final class AppState: ObservableObject {
             }
         } catch {
             lastError = error.localizedDescription
+        }
+
+        let rival = RivalMath.cleaned(rivalUsername)
+        guard !rival.isEmpty else {
+            rivalPRs = []
+            return
+        }
+        do {
+            let rivalWeek = try await client.mergedPRs(author: rival, window: DayWindow.lastSevenDays())
+            rivalPRs = rivalWeek.filter { DayWindow.local().contains($0.mergedAt) }
+        } catch {
+            // Keep last rival score; don't fail your own board.
         }
     }
 
@@ -170,7 +168,10 @@ final class AppState: ObservableObject {
     }
 
     func setRival(_ raw: String) {
-        rivalUsername = RivalMath.cleaned(raw)
+        let cleaned = RivalMath.cleaned(raw)
+        rivalUsername = cleaned
+        rivalDraft = cleaned
+        UserDefaults.standard.set(cleaned, forKey: Keys.rival)
         Task { await refresh() }
     }
 
