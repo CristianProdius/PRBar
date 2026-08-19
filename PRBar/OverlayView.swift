@@ -7,6 +7,16 @@ struct OverlayView: View {
         state.isHovered || state.menuOpen
     }
 
+    private var islandShape: UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            topLeadingRadius: 0,
+            bottomLeadingRadius: showFull ? 22 : 18,
+            bottomTrailingRadius: showFull ? 22 : 18,
+            topTrailingRadius: 0,
+            style: .continuous
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: showFull ? 10 : 5) {
             if showFull {
@@ -29,48 +39,47 @@ struct OverlayView: View {
                     justMerged: state.justMerged,
                     compact: true
                 )
-                .frame(height: 7)
+                .frame(height: 6)
             }
         }
-        .padding(.horizontal, showFull ? 14 : 10)
-        .padding(.vertical, showFull ? 12 : 7)
+        .padding(.horizontal, showFull ? 16 : 14)
+        .padding(.top, showFull ? 8 : 5)
+        .padding(.bottom, showFull ? 14 : 9)
         .frame(width: OverlayPanel.cardWidth, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: showFull ? 16 : 12, style: .continuous)
-                .fill(Color(red: 0.07, green: 0.07, blue: 0.075))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: showFull ? 16 : 12, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .background(Color.black, in: islandShape)
+        .overlay(islandShape.strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+        .clipShape(islandShape)
         .animation(.easeInOut(duration: 0.18), value: showFull)
     }
 
     private var compactRow: some View {
-        HStack(spacing: 6) {
-            Text("\(state.count)")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Color.white)
-            Text("you")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.38))
+        ZStack {
+            HStack(spacing: 7) {
+                Text("\(state.count)")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.white)
+                Text("you")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.4))
+                Text("vs")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.22))
+                Text(rivalShort)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.4))
+                    .lineLimit(1)
+                Text(state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.white)
+            }
+            .frame(maxWidth: .infinity)
 
-            Text("vs")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.2))
-
-            Text(rivalShort)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.38))
-                .lineLimit(1)
-            Text(state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Color.white)
-
-            Spacer(minLength: 4)
-            overflowButton
+            HStack {
+                Spacer()
+                overflowButton
+            }
         }
     }
 
