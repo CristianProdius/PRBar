@@ -89,7 +89,7 @@ struct MenuView: View {
                 set: { _ in state.toggleLaunchAtLogin() }
             ))
 
-            Button("Bring bar here") {
+            Button("Snap to notch") {
                 state.resetBarPosition()
             }
 

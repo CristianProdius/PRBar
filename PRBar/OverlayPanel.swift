@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import SwiftUI
 
 final class ClearHostingView<Content: View>: NSHostingView<Content> {
@@ -51,7 +52,8 @@ final class OverlayPanel: NSPanel {
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        isMovableByWindowBackground = true
+        isMovableByWindowBackground = false
+        level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 2)
         hidesOnDeactivate = false
         animationBehavior = .none
         setContentSize(Self.compactSize)
@@ -69,27 +71,33 @@ final class OverlayPanel: NSPanel {
         contentView?.wantsLayer = true
         contentView?.layer?.backgroundColor = NSColor.clear.cgColor
         hostingView = hosting
-        restorePosition()
+        pinToNotch(expanded: false)
         refreshTracking()
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.pinToNotch(expanded: self.state.isHovered || self.state.menuOpen)
+        }
     }
 
     func applyCardSize(expanded: Bool) {
-        let size = expanded ? Self.expandedSize : Self.compactSize
-        var next = frame
-        let top = next.maxY
-        next.size = size
-        next.origin.y = top - size.height
-        setFrame(next, display: true, animate: false)
-        hostingView?.frame = NSRect(origin: .zero, size: size)
+        pinToNotch(expanded: expanded)
         refreshTracking()
     }
 
     func restorePosition() {
-        if let saved = state.hudOrigin, isOnAnyScreen(saved) {
-            setFrameOrigin(saved)
-            return
-        }
-        centerOnMouseScreen()
+        pinToNotch(expanded: state.isHovered || state.menuOpen)
+    }
+
+    func pinToNotch(expanded: Bool) {
+        let size = expanded ? Self.expandedSize : Self.compactSize
+        let screen = Self.notchScreen()
+        let origin = NotchLayout.origin(screenFrame: screen.frame, size: size)
+        setFrame(NSRect(origin: origin, size: size), display: true, animate: false)
+        hostingView?.frame = NSRect(origin: .zero, size: size)
     }
 
     func showOverflowMenu() {
@@ -103,7 +111,7 @@ final class OverlayPanel: NSPanel {
         }
 
         menu.addItem(item("Refresh", #selector(overflowRefresh), key: "r"))
-        menu.addItem(item("Bring bar here", #selector(overflowBring)))
+        menu.addItem(item("Snap to notch", #selector(overflowBring)))
         menu.addItem(.separator())
         menu.addItem(item(state.hudVisible ? "Hide on-screen bar" : "Show on-screen bar", #selector(overflowToggleBar)))
 
@@ -138,15 +146,13 @@ final class OverlayPanel: NSPanel {
 
     func resetToMouseScreen() {
         state.hudOrigin = nil
-        applyCardSize(expanded: state.isHovered || state.menuOpen)
-        centerOnMouseScreen()
+        pinToNotch(expanded: state.isHovered || state.menuOpen)
         orderFrontRegardless()
     }
 
     func applyVisibility(_ visible: Bool) {
         if visible {
-            restorePosition()
-            applyCardSize(expanded: state.isHovered || state.menuOpen)
+            pinToNotch(expanded: state.isHovered || state.menuOpen)
             orderFrontRegardless()
         } else {
             orderOut(nil)
@@ -156,25 +162,16 @@ final class OverlayPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
-    private func centerOnMouseScreen() {
-        let screen = Self.screenUnderMouse()
-        let visible = screen.visibleFrame
-        let size = frame.size
-        let x = visible.midX - size.width / 2
-        let y = visible.maxY - size.height - 8
-        setFrameOrigin(NSPoint(x: x, y: y))
-    }
-
-    private func isOnAnyScreen(_ origin: CGPoint) -> Bool {
-        let probe = NSRect(origin: origin, size: NSSize(width: 80, height: 28))
-        return NSScreen.screens.contains { $0.visibleFrame.intersects(probe) }
-    }
-
-    static func screenUnderMouse() -> NSScreen {
-        let point = NSEvent.mouseLocation
-        return NSScreen.screens.first { $0.frame.contains(point) }
-            ?? NSScreen.main
-            ?? NSScreen.screens[0]
+    static func notchScreen() -> NSScreen {
+        let builtin = NSScreen.screens.first { screen in
+            let id = screen.displayID
+            return CGDisplayIsBuiltin(id) != 0 && CGDisplayIsOnline(id) != 0
+        }
+        if let builtin { return builtin }
+        if let notched = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 16 }) {
+            return notched
+        }
+        return NSScreen.main ?? NSScreen.screens[0]
     }
 
     private func updateHoverFromMouse() {
@@ -226,8 +223,13 @@ final class OverlayPanel: NSPanel {
 
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
-        if isOnAnyScreen(frame.origin) {
-            state.hudOrigin = frame.origin
-        }
+        pinToNotch(expanded: state.isHovered || state.menuOpen)
+    }
+}
+
+private extension NSScreen {
+    var displayID: CGDirectDisplayID {
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        return deviceDescription[key] as? CGDirectDisplayID ?? 0
     }
 }

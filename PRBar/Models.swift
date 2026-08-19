@@ -129,6 +129,15 @@ enum RivalMath {
     }
 }
 
+enum NotchLayout {
+    static func origin(screenFrame: CGRect, size: CGSize) -> CGPoint {
+        CGPoint(
+            x: screenFrame.midX - size.width / 2,
+            y: screenFrame.maxY - size.height
+        )
+    }
+}
+
 enum DateDecoding {
     static func iso8601(_ string: String) -> Date? {
         let fractional = ISO8601DateFormatter()

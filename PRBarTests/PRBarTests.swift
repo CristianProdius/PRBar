@@ -153,6 +153,16 @@ final class WeekMathTests: XCTestCase {
     }
 }
 
+final class NotchLayoutTests: XCTestCase {
+    func testCentersOnTopOfScreen() {
+        let screen = CGRect(x: 2560, y: 0, width: 1512, height: 982)
+        let size = CGSize(width: 380, height: 46)
+        let origin = NotchLayout.origin(screenFrame: screen, size: size)
+        XCTAssertEqual(origin.x, 2560 + (1512 - 380) / 2)
+        XCTAssertEqual(origin.y, 982 - 46)
+    }
+}
+
 final class RivalMathTests: XCTestCase {
     func testCleansAtAndSpaces() {
         XCTAssertEqual(RivalMath.cleaned("  @IonPop  "), "IonPop")
