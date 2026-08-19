@@ -1,21 +1,43 @@
 # PRBar
 
-On-screen daily progress bar for merged GitHub PRs.
+A macOS overlay that tracks how many GitHub PRs **you authored and merged today**, races a friend live, and sits on screen as a compact progress card.
 
-Counts PRs **you authored that merged today** (local midnight) against a goal. Default goal is 50.
+## What it does
+
+- Counts your merged PRs since local midnight against a daily goal (default 50)
+- Shows open PRs as **in flight**
+- Live **you vs rival** scoreboard (another GitHub username)
+- Compact strip when idle; hover to open the full card
+- `⋯` opens Refresh, hide, sound, launch-at-login, quit
+- Polls GitHub every 45 seconds using your existing `gh` login
 
 ## Requirements
 
 - macOS 14+
+- [Xcode](https://developer.apple.com/xcode/) and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 - [GitHub CLI](https://cli.github.com/) signed in (`gh auth login`)
 
 ## Run
 
 ```bash
-cd ~/Development/PRBar
+git clone git@github.com:CristianProdius/PRBar.git
+cd PRBar
 xcodegen generate
-xcodebuild -scheme PRBar -configuration Debug -derivedDataPath build
-open build/Build/Products/Debug/PRBar.app
+xcodebuild -scheme PRBar -configuration Release -destination 'platform=macOS'
+open build/Build/Products/Release/PRBar.app
 ```
 
-The capsule sits under the menu bar. Click it for today’s merges. The menu bar extra has the goal stepper, refresh, hide/show, launch at login, and quit.
+If you skip `-derivedDataPath`, Xcode writes the app under `~/Library/Developer/Xcode/DerivedData`.
+
+## Use
+
+1. Sign in with `gh auth login` if you have not already.
+2. The strip appears near the top of the screen. Drag it if you want.
+3. Hover to expand. Set a rival GitHub username and press **Race**.
+4. Menu bar extra: goal, rival, hide on fullscreen, sound, launch at login.
+
+The goal counts **your merges only**. A rival’s private PRs appear only if your token can see those repos.
+
+## License
+
+MIT
