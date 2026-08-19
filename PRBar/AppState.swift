@@ -165,8 +165,8 @@ final class AppState: ObservableObject {
     }
 
     func requestOverflowMenu() {
-        isExpanded.toggle()
-        menuOpen = false
+        menuOpen = true
+        overflowTick += 1
     }
 
     func setRival(_ raw: String) {

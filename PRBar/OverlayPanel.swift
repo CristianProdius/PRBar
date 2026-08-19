@@ -167,7 +167,8 @@ final class OverlayPanel: NSPanel {
     }
 
     private func cardRect() -> NSRect {
-        let height: CGFloat = state.isExpanded ? 328 : 56
+        let expanded = state.isHovered || state.menuOpen
+        let height: CGFloat = expanded ? 328 : 48
         return NSRect(x: 0, y: Self.panelSize.height - height, width: Self.panelSize.width, height: height)
     }
 

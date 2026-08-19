@@ -4,12 +4,12 @@ struct OverlayView: View {
     @ObservedObject var state: AppState
 
     private var showFull: Bool {
-        state.isExpanded
+        state.isHovered || state.menuOpen
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: showFull ? 12 : 8) {
+            VStack(alignment: .leading, spacing: showFull ? 12 : 6) {
                 if showFull {
                     fullHeader
                 } else {
@@ -23,14 +23,14 @@ struct OverlayView: View {
                     justMerged: state.justMerged,
                     compact: !showFull
                 )
-                .frame(height: showFull ? 36 : 14)
+                .frame(height: showFull ? 32 : 8)
 
                 if showFull {
                     fullDetails
                 }
             }
-            .padding(.horizontal, showFull ? 20 : 16)
-            .padding(.vertical, showFull ? 16 : 10)
+            .padding(.horizontal, showFull ? 18 : 12)
+            .padding(.vertical, showFull ? 14 : 8)
             .frame(width: 400, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: showFull ? 20 : 16, style: .continuous)
@@ -46,47 +46,43 @@ struct OverlayView: View {
     }
 
     private var compactRow: some View {
-        HStack(spacing: 10) {
-            scoreChip(name: youLabel, score: state.count, leading: true)
+        HStack(spacing: 8) {
+            Text("\(state.count)")
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Color.white)
+            Text("you")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.4))
+
             Text("vs")
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.28))
-            scoreChip(name: rivalLabel, score: state.rivalUsername.isEmpty ? nil : state.rivalCount, leading: false)
-            Spacer(minLength: 0)
+                .foregroundStyle(Color.white.opacity(0.22))
+
+            Text(rivalShort)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.4))
+                .lineLimit(1)
+            Text(state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)")
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(Color.white)
+
+            Spacer(minLength: 8)
+
             overflowButton
         }
     }
 
-    private func scoreChip(name: String, score: Int?, leading: Bool) -> some View {
-        HStack(spacing: 6) {
-            if leading {
-                Text(score.map(String.init) ?? "–")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Color.white)
-                Text(name)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.4))
-                    .lineLimit(1)
-            } else {
-                Text(name)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.4))
-                    .lineLimit(1)
-                Text(score.map(String.init) ?? "–")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Color.white)
-            }
-        }
-    }
-
-    private var youLabel: String {
-        state.username.isEmpty ? "you" : state.username
-    }
+    private var youLabel: String { "you" }
 
     private var rivalLabel: String {
         state.rivalUsername.isEmpty ? "rival" : state.rivalUsername
+    }
+
+    private var rivalShort: String {
+        let name = rivalLabel
+        return name.count > 12 ? String(name.prefix(11)) + "…" : name
     }
 
     private var fullHeader: some View {
@@ -307,29 +303,34 @@ struct PulseBar: View {
     @State private var revealTask: Task<Void, Never>?
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: live ? 1.0 / 24.0 : 1.0, paused: !live)) { timeline in
-            let time = live ? timeline.date.timeIntervalSinceReferenceDate : 0
-            HStack(spacing: compact ? 2.5 : 3.5) {
-                ForEach(0..<segments, id: \.self) { index in
-                    RoundedRectangle(cornerRadius: compact ? 2 : 3, style: .continuous)
-                        .fill(color(for: index, time: time))
-                        .frame(width: compact ? 7 : 10, height: compact ? 10 : 26)
-                        .scaleEffect(y: scale(for: index, time: time), anchor: .bottom)
+        GeometryReader { geo in
+            TimelineView(.animation(minimumInterval: live ? 1.0 / 24.0 : 1.0, paused: !live)) { timeline in
+                let time = live ? timeline.date.timeIntervalSinceReferenceDate : 0
+                let spacing: CGFloat = compact ? 2 : 3
+                let tickWidth = max(3, (geo.size.width - spacing * CGFloat(segments - 1)) / CGFloat(segments))
+                let tickHeight = compact ? max(6, geo.size.height) : max(18, geo.size.height - 4)
+                HStack(spacing: spacing) {
+                    ForEach(0..<segments, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: compact ? 1.5 : 2.5, style: .continuous)
+                            .fill(color(for: index, time: time))
+                            .frame(width: tickWidth, height: tickHeight)
+                            .scaleEffect(y: scale(for: index, time: time), anchor: .bottom)
+                    }
                 }
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-        }
-        .onContinuousHover { phase in
-            guard live else {
-                hoverIndex = nil
-                return
-            }
-            switch phase {
-            case .active(let location):
-                let step: CGFloat = compact ? 9.5 : 13.5
-                hoverIndex = min(segments - 1, max(0, Int(location.x / step)))
-            case .ended:
-                hoverIndex = nil
+            .onContinuousHover { phase in
+                guard live else {
+                    hoverIndex = nil
+                    return
+                }
+                switch phase {
+                case .active(let location):
+                    let step = max(1, geo.size.width / CGFloat(segments))
+                    hoverIndex = min(segments - 1, max(0, Int(location.x / step)))
+                case .ended:
+                    hoverIndex = nil
+                }
             }
         }
         .onAppear {
