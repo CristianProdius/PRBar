@@ -49,6 +49,73 @@ final class DateDecodingTests: XCTestCase {
     }
 }
 
+final class StreakMathTests: XCTestCase {
+    func testFirstMergeStartsStreak() {
+        let today = date(2026, 8, 19)
+        let next = StreakMath.updated(
+            current: .init(count: 0, lastActiveDay: nil),
+            hasMergeToday: true,
+            now: today,
+            calendar: utc
+        )
+        XCTAssertEqual(next.count, 1)
+        XCTAssertEqual(next.lastActiveDay, utc.startOfDay(for: today))
+    }
+
+    func testConsecutiveDayIncrements() {
+        var calendar = utc
+        let yesterday = date(2026, 8, 18)
+        let today = date(2026, 8, 19)
+        let next = StreakMath.updated(
+            current: .init(count: 4, lastActiveDay: calendar.startOfDay(for: yesterday)),
+            hasMergeToday: true,
+            now: today,
+            calendar: calendar
+        )
+        XCTAssertEqual(next.count, 5)
+    }
+
+    func testMissedDayResetsOnNextMerge() {
+        let next = StreakMath.updated(
+            current: .init(count: 6, lastActiveDay: utc.startOfDay(for: date(2026, 8, 16))),
+            hasMergeToday: true,
+            now: date(2026, 8, 19),
+            calendar: utc
+        )
+        XCTAssertEqual(next.count, 1)
+    }
+
+    func testMidDayWithoutMergeKeepsStreak() {
+        let next = StreakMath.updated(
+            current: .init(count: 3, lastActiveDay: utc.startOfDay(for: date(2026, 8, 18))),
+            hasMergeToday: false,
+            now: date(2026, 8, 19, 10),
+            calendar: utc
+        )
+        XCTAssertEqual(next.count, 3)
+    }
+
+    func testTwoDayGapClearsStreak() {
+        let next = StreakMath.updated(
+            current: .init(count: 3, lastActiveDay: utc.startOfDay(for: date(2026, 8, 16))),
+            hasMergeToday: false,
+            now: date(2026, 8, 19),
+            calendar: utc
+        )
+        XCTAssertEqual(next.count, 0)
+    }
+
+    private var utc: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
+    private func date(_ y: Int, _ m: Int, _ d: Int, _ h: Int = 12) -> Date {
+        utc.date(from: DateComponents(year: y, month: m, day: d, hour: h))!
+    }
+}
+
 final class TodayFilterTests: XCTestCase {
     func testOnlyTodayMergesSurvive() {
         var calendar = Calendar(identifier: .gregorian)

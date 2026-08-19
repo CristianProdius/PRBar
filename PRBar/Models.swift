@@ -47,6 +47,36 @@ enum ProgressMath {
     }
 }
 
+enum StreakMath {
+    struct Snapshot: Equatable {
+        var count: Int
+        var lastActiveDay: Date?
+    }
+
+    static func updated(
+        current: Snapshot,
+        hasMergeToday: Bool,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Snapshot {
+        let today = calendar.startOfDay(for: now)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today.addingTimeInterval(-86_400)
+
+        if hasMergeToday {
+            if current.lastActiveDay == today { return current }
+            if current.lastActiveDay == yesterday {
+                return Snapshot(count: current.count + 1, lastActiveDay: today)
+            }
+            return Snapshot(count: 1, lastActiveDay: today)
+        }
+
+        if let last = current.lastActiveDay, last < yesterday {
+            return Snapshot(count: 0, lastActiveDay: last)
+        }
+        return current
+    }
+}
+
 enum DateDecoding {
     static func iso8601(_ string: String) -> Date? {
         let fractional = ISO8601DateFormatter()
