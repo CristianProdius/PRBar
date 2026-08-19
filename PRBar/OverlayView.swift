@@ -47,7 +47,6 @@ struct OverlayView: View {
         .padding(.bottom, showFull ? 14 : 7)
         .frame(width: OverlayPanel.cardWidth, alignment: .leading)
         .background(Color.black, in: islandShape)
-        .overlay(islandShape.strokeBorder(paceColor.opacity(state.paceMood == .onTrack ? 0.08 : 0.4), lineWidth: 1))
         .clipShape(islandShape)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: showFull)
     }
