@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PRBar motion</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1280px; height: 720px; overflow: hidden; background: #070708; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif; color: #fff; }
+    .stage {
+      width: 1280px; height: 720px; position: relative;
+      background: radial-gradient(820px 380px at 50% 30%, #1c1c22 0%, #070708 68%);
+    }
+    .vignette {
+      position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(70% 70% at 50% 40%, transparent 40%, rgba(0,0,0,.45) 100%);
+    }
+    .kicker {
+      position: absolute; top: 64px; left: 0; right: 0; text-align: center;
+      font: 600 12px/1 system-ui; letter-spacing: .34em; text-transform: uppercase;
+      color: rgba(255,255,255,.28);
+    }
+    .hud {
+      position: absolute; left: 50%; top: 188px;
+      transform: translateX(-50%);
+      width: 428px;
+      background: #111113;
+      border: 1px solid rgba(255,255,255,.1);
+      box-shadow: 0 28px 80px rgba(0,0,0,.58);
+      overflow: hidden;
+    }
+    .mini, .full { will-change: opacity; }
+    .row { display: flex; align-items: baseline; gap: 7px; }
+    .score { font: 650 18px/1 ui-rounded, "SF Pro Rounded", system-ui; font-variant-numeric: tabular-nums; }
+    .who { font: 500 12px/1 system-ui; color: rgba(255,255,255,.4); }
+    .vs { font: 650 11px/1 system-ui; color: rgba(255,255,255,.2); }
+    .dots { margin-left: auto; opacity: .38; letter-spacing: 1px; font-size: 13px; }
+    .ticks { display: flex; gap: 2.5px; height: 8px; }
+    .ticks i { flex: 1; border-radius: 2px; background: rgba(255,255,255,.11); transform-origin: center; }
+    .ticks i.on { background: #fff; }
+    .ticks i.part { background: linear-gradient(90deg, #fff 0%, #fff var(--p), rgba(255,255,255,.11) var(--p)); }
+    .ticks.gold i.on { background: #f3d26a; }
+    .head { display: flex; align-items: center; gap: 8px; }
+    .title { font: 650 13px/1 system-ui; }
+    .headline { font: 400 12px/1.2 system-ui; color: rgba(255,255,255,.4); white-space: nowrap; }
+    .big { display: flex; align-items: baseline; gap: 8px; }
+    .big .n { font: 650 36px/1 ui-rounded, "SF Pro Rounded", system-ui; font-variant-numeric: tabular-nums; }
+    .big .g { font: 500 14px/1 system-ui; color: rgba(255,255,255,.3); }
+    .pill { font: 650 11px/1 system-ui; padding: 4px 7px; border-radius: 99px; background: rgba(255,255,255,.08); }
+    .lab { display: flex; justify-content: space-between; font: 650 11px/1 system-ui; color: rgba(255,255,255,.5); }
+    .week { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+    .week b { display: block; width: 14px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.12); margin: 0 auto 5px; }
+    .week b.hot { background: #fff; }
+    .week span { font: 500 10px/1 system-ui; color: rgba(255,255,255,.34); }
+    .week .today span { color: rgba(255,255,255,.82); font-weight: 650; }
+    .pr { font: 500 12px/1.35 system-ui; color: rgba(255,255,255,.88); }
+    .repo { font: 400 11px/1.3 ui-monospace, Menlo, monospace; color: rgba(255,255,255,.32); }
+    .cursor {
+      position: absolute; width: 18px; height: 18px; left: 820px; top: 140px;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,.55));
+      z-index: 5;
+    }
+    .stack { display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <div class="kicker" id="kicker">Daily merge race</div>
+    <div class="hud" id="hud">
+      <div class="mini stack" id="mini" style="gap:7px">
+        <div class="row">
+          <span class="score" id="youMini">3</span>
+          <span class="who">you</span>
+          <span class="vs">vs</span>
+          <span class="who">ion</span>
+          <span class="score">2</span>
+          <span class="dots">⋯</span>
+        </div>
+        <div class="ticks" id="miniTicks"></div>
+      </div>
+      <div class="full stack" id="full" style="gap:10px">
+        <div class="head">
+          <div class="title">Today</div>
+          <div class="headline" id="line">You’re up 1 on @ion</div>
+          <div class="dots">⋯</div>
+        </div>
+        <div class="big">
+          <div class="n" id="youBig">3</div>
+          <div class="g">/50</div>
+          <div class="pill">↗ 3</div>
+          <div class="who">vs yesterday</div>
+        </div>
+        <div>
+          <div class="lab"><span>you</span><span id="yl">3</span></div>
+          <div class="ticks" id="youTicks" style="margin-top:4px"></div>
+        </div>
+        <div>
+          <div class="lab"><span>ion</span><span>2</span></div>
+          <div class="ticks" id="themTicks" style="margin-top:4px"></div>
+        </div>
+        <div class="week">
+          <div><b></b><span>Thu</span></div>
+          <div><b></b><span>Fri</span></div>
+          <div><b></b><span>Sat</span></div>
+          <div><b></b><span>Sun</span></div>
+          <div><b class="hot"></b><span>Mon</span></div>
+          <div><b class="hot"></b><span>Tue</span></div>
+          <div class="today"><b class="hot"></b><span>Wed</span></div>
+        </div>
+        <div>
+          <div class="pr">feat(sequencer): client-24 product cutover</div>
+          <div class="repo">Ken-Technology/ken-backend</div>
+        </div>
+      </div>
+    </div>
+    <svg class="cursor" id="cursor" viewBox="0 0 16 16">
+      <path fill="#fff" stroke="#111" stroke-width=".8" d="M2 1.5 L2 13.2 L5.2 10.4 L7.4 15.1 L9.2 14.3 L7 9.5 L11.6 9.5 Z"/>
+    </svg>
+    <div class="vignette"></div>
+  </div>
+  <script>
+    const hud = document.getElementById("hud");
+    const mini = document.getElementById("mini");
+    const full = document.getElementById("full");
+    const cursor = document.getElementById("cursor");
+    const kicker = document.getElementById("kicker");
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function clamp(t, a = 0, b = 1) { return Math.max(a, Math.min(b, t)); }
+    function easeOut(t) { return 1 - Math.pow(1 - clamp(t), 3); }
+    function easeInOut(t) {
+      t = clamp(t);
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+    function range(t, a, b) { return clamp((t - a) / (b - a)); }
+
+    function paintTicks(id, filled, pulse = 0, gold = false) {
+      const el = document.getElementById(id);
+      const whole = Math.floor(filled);
+      const part = filled - whole;
+      el.classList.toggle("gold", gold);
+      el.innerHTML = "";
+      for (let i = 0; i < 22; i++) {
+        const n = document.createElement("i");
+        if (i < whole) n.classList.add("on");
+        else if (i === whole && part > 0.04) {
+          n.classList.add("part");
+          n.style.setProperty("--p", `${part * 100}%`);
+        }
+        if (i === Math.max(0, whole - 1) && pulse > 0) {
+          const s = 1 + 0.16 * pulse;
+          n.style.transform = `scaleY(${s})`;
+          n.style.opacity = String(0.7 + 0.3 * pulse);
+        }
+        el.appendChild(n);
+      }
+    }
+
+    window.seek = function seek(t) {
+      const expand = easeOut(range(t, 1.45, 2.35));
+      const youTarget = t >= 3.85 ? 4 : 3;
+      const fillT = easeOut(range(t, 2.25, 3.2));
+      const youFill = expand < 0.45 ? 3 : lerp(0.35, youTarget, fillT);
+      const themFill = expand < 0.45 ? 2 : lerp(0.25, 2, easeOut(range(t, 2.4, 3.05)));
+      const pop = t >= 3.85 && t < 4.35 ? 1 - range(t, 3.85, 4.35) : 0;
+      const gold = easeOut(range(t, 5.05, 5.45));
+      const pulse = 0.5 + 0.5 * Math.sin(t * 5.2);
+      const floatY = Math.sin(t * 1.15) * 3.5;
+
+      kicker.style.opacity = String(0.2 + 0.8 * easeOut(range(t, 0.05, 0.55)));
+
+      const padY = lerp(8, 15, expand);
+      const padX = lerp(12, 16, expand);
+      const radius = lerp(13, 18, expand);
+      hud.style.padding = `${padY}px ${padX}px`;
+      hud.style.borderRadius = `${radius}px`;
+      hud.style.top = `${lerp(198, 122, expand) + floatY}px`;
+
+      const miniOut = easeOut(range(t, 1.35, 1.7));
+      mini.style.opacity = String(1 - miniOut);
+      mini.style.display = miniOut > 0.92 ? "none" : "flex";
+
+      const fullIn = easeOut(range(t, 1.68, 2.35));
+      full.style.display = fullIn < 0.04 ? "none" : "flex";
+      full.style.opacity = String(fullIn);
+      full.style.transform = `translateY(${lerp(10, 0, fullIn)}px)`;
+
+      const cx = lerp(820, 704, easeInOut(range(t, 0.45, 1.55)));
+      const cy = lerp(132, 208, easeInOut(range(t, 0.45, 1.55)));
+      const cHide = easeOut(range(t, 3.6, 4.1));
+      cursor.style.left = `${cx}px`;
+      cursor.style.top = `${cy}px`;
+      cursor.style.opacity = String(1 - cHide);
+
+      const you = t >= 3.85 ? 4 : 3;
+      document.getElementById("youMini").textContent = you;
+      document.getElementById("youBig").textContent = you;
+      document.getElementById("yl").textContent = you;
+      document.getElementById("youBig").style.transform = `scale(${1 + pop * 0.08})`;
+      document.getElementById("youBig").style.transformOrigin = "left bottom";
+      document.getElementById("line").textContent =
+        you >= 4 ? "You’re up 2 on @ion" : "You’re up 1 on @ion";
+
+      paintTicks("miniTicks", Math.min(youFill, 3), pulse * (1 - expand), gold > 0.5);
+      paintTicks("youTicks", youFill, pulse * expand, gold > 0.4);
+      paintTicks("themTicks", themFill, 0, false);
+    };
+
+    window.seek(0);
+  </script>
+</body>
+</html>

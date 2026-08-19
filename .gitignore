@@ -4,3 +4,6 @@ DerivedData/
 *.xcworkspace/
 xcuserdata/
 .DS_Store
+demo/node_modules/
+demo/package-lock.json
+demo/viral-frames/
