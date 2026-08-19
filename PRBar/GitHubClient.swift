@@ -59,6 +59,19 @@ struct GitHubClient: Sendable {
         return login
     }
 
+    func userExists(login: String) async throws -> Bool {
+        let cleaned = RivalMath.cleaned(login)
+        guard !cleaned.isEmpty else { return false }
+        let document = "query { user(login: \"\(cleaned)\") { login } }"
+        let data = try await graphql(document)
+        let parsed = try JSONDecoder().decode(UserLookupResponse.self, from: data)
+        if let message = parsed.errors?.first?.message {
+            if message.lowercased().contains("could not resolve") { return false }
+            throw GitHubClientError.decoding(message)
+        }
+        return parsed.data?.user?.login != nil
+    }
+
     func mergedPRs(author: String, window: DayWindow) async throws -> [MergedPR] {
         var collected: [MergedPR] = []
         var cursor: String?
@@ -214,6 +227,15 @@ private struct ViewerResponse: Decodable {
     struct DataBody: Decodable {
         struct Viewer: Decodable { let login: String }
         let viewer: Viewer
+    }
+    let data: DataBody?
+    let errors: [GraphQLError]?
+}
+
+private struct UserLookupResponse: Decodable {
+    struct DataBody: Decodable {
+        struct User: Decodable { let login: String }
+        let user: User?
     }
     let data: DataBody?
     let errors: [GraphQLError]?

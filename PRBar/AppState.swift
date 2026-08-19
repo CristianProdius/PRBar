@@ -49,6 +49,11 @@ final class AppState: ObservableObject {
             }
         }
     }
+    @Published var hasCompletedOnboarding: Bool {
+        didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: Keys.onboarded) }
+    }
+    @Published var githubStatus: GitHubAuthState = .idle
+    @Published var settingsTick = 0
 
     var count: Int { prs.count }
     var rivalCount: Int { rivalPRs.count }
@@ -62,7 +67,7 @@ final class AppState: ObservableObject {
         MoodMath.statusLine(pace: paceMood, race: raceMood, remaining: max(0, goal - count), rival: rivalUsername)
     }
     var shouldShowHUD: Bool {
-        hudVisible && !(hideInFullscreen && isFullscreenSpace)
+        hasCompletedOnboarding && hudVisible && !(hideInFullscreen && isFullscreenSpace)
     }
 
     private var client: GitHubClient
@@ -72,12 +77,22 @@ final class AppState: ObservableObject {
     private var spaceObserver: NSObjectProtocol?
     private var lastActiveDay: Date?
     private var pulseTask: Task<Void, Never>?
+    private var didStart = false
 
     init(client: GitHubClient = GitHubClient()) {
         let storedGoal = UserDefaults.standard.object(forKey: Keys.goal) as? Int ?? 50
-        self.goal = ProgressMath.clampGoal(storedGoal)
-        self.username = UserDefaults.standard.string(forKey: Keys.username) ?? ""
+        let storedUsername = UserDefaults.standard.string(forKey: Keys.username) ?? ""
         let storedRival = RivalMath.cleaned(UserDefaults.standard.string(forKey: Keys.rival) ?? "")
+        let storedOnboarded: Bool
+        if UserDefaults.standard.object(forKey: Keys.onboarded) != nil {
+            storedOnboarded = UserDefaults.standard.bool(forKey: Keys.onboarded)
+        } else {
+            // Existing installs already resolved a GitHub login.
+            storedOnboarded = !storedUsername.isEmpty
+            UserDefaults.standard.set(storedOnboarded, forKey: Keys.onboarded)
+        }
+        self.goal = ProgressMath.clampGoal(storedGoal)
+        self.username = storedUsername
         self.rivalUsername = storedRival
         self.rivalDraft = storedRival
         self.hudVisible = UserDefaults.standard.object(forKey: Keys.hudVisible) as? Bool ?? true
@@ -94,10 +109,17 @@ final class AppState: ObservableObject {
                 y: UserDefaults.standard.double(forKey: Keys.hudY)
             )
         }
+        self.hasCompletedOnboarding = storedOnboarded
+        self.githubStatus = storedUsername.isEmpty ? .idle : .signedIn(storedUsername)
         self.client = client
     }
 
     func start() {
+        guard !didStart else {
+            Task { await refresh() }
+            return
+        }
+        didStart = true
         Task { await refresh() }
         pollTimer?.invalidate()
         pollTimer = Timer.scheduledTimer(withTimeInterval: 45, repeats: true) { [weak self] _ in
@@ -170,6 +192,43 @@ final class AppState: ObservableObject {
     func requestOverflowMenu() {
         menuOpen = true
         overflowTick += 1
+    }
+
+    func openSettings() {
+        settingsTick += 1
+    }
+
+    func completeOnboarding(goal: Int, rival: String) {
+        setGoal(goal)
+        let cleaned = RivalMath.cleaned(rival)
+        rivalUsername = cleaned
+        rivalDraft = cleaned
+        UserDefaults.standard.set(cleaned, forKey: Keys.rival)
+        hasCompletedOnboarding = true
+        hudVisible = true
+        start()
+    }
+
+    func probeGitHub() async {
+        githubStatus = .checking
+        do {
+            let login = try await client.viewerLogin()
+            username = login
+            UserDefaults.standard.set(login, forKey: Keys.username)
+            githubStatus = .signedIn(login)
+        } catch let error as GitHubClientError {
+            switch error {
+            case .ghNotFound: githubStatus = .missingCLI
+            case .tokenMissing: githubStatus = .notSignedIn
+            default: githubStatus = .failed(error.localizedDescription)
+            }
+        } catch {
+            githubStatus = .failed(error.localizedDescription)
+        }
+    }
+
+    func userExists(_ login: String) async throws -> Bool {
+        try await client.userExists(login: login)
     }
 
     func setRival(_ raw: String) {
@@ -277,5 +336,25 @@ final class AppState: ObservableObject {
         static let hudX = "prbar.hudX"
         static let hudY = "prbar.hudY"
         static let rival = "prbar.rival"
+        static let onboarded = "prbar.onboarded"
+    }
+}
+
+enum GitHubAuthState: Equatable {
+    case idle
+    case checking
+    case signedIn(String)
+    case missingCLI
+    case notSignedIn
+    case failed(String)
+
+    var isSignedIn: Bool {
+        if case .signedIn = self { return true }
+        return false
+    }
+
+    var isChecking: Bool {
+        if case .checking = self { return true }
+        return false
     }
 }

@@ -110,6 +110,7 @@ final class OverlayPanel: NSPanel {
             return item
         }
 
+        menu.addItem(item("Settings…", #selector(overflowSettings), key: ","))
         menu.addItem(item("Refresh", #selector(overflowRefresh), key: "r"))
         menu.addItem(item("Snap to notch", #selector(overflowBring)))
         menu.addItem(.separator())
@@ -132,6 +133,7 @@ final class OverlayPanel: NSPanel {
         updateHoverFromMouse()
     }
 
+    @objc private func overflowSettings() { state.openSettings() }
     @objc private func overflowRefresh() { Task { await state.refresh() } }
     @objc private func overflowBring() { resetToMouseScreen() }
     @objc private func overflowToggleBar() { state.hudVisible.toggle() }

@@ -4,7 +4,7 @@ struct MenuView: View {
     @ObservedObject var state: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(MoodColors.shortLabel(state.paceMood))
@@ -38,36 +38,9 @@ struct MenuView: View {
 
             Divider()
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Rival")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                TextField("github username", text: $state.rivalDraft)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { state.setRival(state.rivalDraft) }
+            Button("Settings…") {
+                state.openSettings()
             }
-
-            Stepper(value: Binding(
-                get: { state.goal },
-                set: { state.setGoal($0) }
-            ), in: 1...500, step: 5) {
-                Text("Daily goal")
-            }
-
-            Toggle("On-screen bar", isOn: $state.hudVisible)
-            Toggle("Hide on fullscreen spaces", isOn: $state.hideInFullscreen)
-            Toggle("Sound on merge", isOn: $state.soundEnabled)
-            Toggle("Launch at login", isOn: Binding(
-                get: { state.launchesAtLogin },
-                set: { _ in state.toggleLaunchAtLogin() }
-            ))
-
-            Button("Snap to notch") {
-                state.resetBarPosition()
-            }
-
-            Divider()
-
             Button("Refresh") {
                 Task { await state.refresh() }
             }
