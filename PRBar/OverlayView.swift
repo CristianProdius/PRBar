@@ -33,7 +33,7 @@ struct OverlayView: View {
                 compactRow
                 PulseBar(
                     ratio: state.ratio,
-                    live: state.paceMood == .critical || state.raceMood == .losing,
+                    live: !reduceMotion && (state.paceMood == .critical || state.raceMood == .losing),
                     celebrating: state.paceMood == .done,
                     justMerged: state.justMerged,
                     compact: true,
@@ -49,33 +49,41 @@ struct OverlayView: View {
         .background(Color.black, in: islandShape)
         .overlay(islandShape.strokeBorder(paceColor.opacity(state.paceMood == .onTrack ? 0.08 : 0.4), lineWidth: 1))
         .clipShape(islandShape)
-        .animation(.easeInOut(duration: 0.2), value: showFull)
-        .animation(.easeInOut(duration: 0.35), value: state.paceMood)
-        .animation(.easeInOut(duration: 0.35), value: state.raceMood)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: showFull)
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var compactRow: some View {
-        HStack(spacing: 6) {
-            Text("\(state.count)")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(paceColor)
-            Text("you")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.4))
-            Text("vs")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(raceColor.opacity(0.6))
-            Text(state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(state.raceMood == .losing ? MoodColors.losing : Color.white)
-            Text(rivalShort)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.4))
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            overflowButton
+        ZStack {
+            HStack(spacing: 6) {
+                Text("\(state.count)")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(paceColor)
+                Text("you")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.4))
+                Text("vs")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(raceColor.opacity(0.6))
+                Text(state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(state.raceMood == .losing ? MoodColors.losing : Color.white)
+                if !state.rivalUsername.isEmpty {
+                    Text(rivalShort)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.4))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            HStack {
+                Spacer(minLength: 0)
+                overflowButton
+            }
         }
     }
 
@@ -143,7 +151,9 @@ struct OverlayView: View {
 
     private func prSection(title: String, items: [MergedPR], empty: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            sectionLabel(title)
+            Text(title)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.3))
             if items.isEmpty {
                 Text(empty ?? "None yet")
                     .font(.system(size: 11))
@@ -189,7 +199,7 @@ struct OverlayView: View {
         HStack(spacing: 6) {
             Text("@")
                 .foregroundStyle(Color.white.opacity(0.3))
-            TextField("friend’s GitHub", text: $state.rivalDraft)
+            TextField("Add a rival to race", text: $state.rivalDraft)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundStyle(Color.white.opacity(0.85))
@@ -204,13 +214,6 @@ struct OverlayView: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(.system(size: 9, weight: .semibold))
-            .tracking(0.5)
-            .foregroundStyle(Color.white.opacity(0.3))
     }
 
     private func prRow(_ pr: MergedPR) -> some View {
@@ -244,6 +247,7 @@ struct OverlayView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Actions")
         .help("Actions")
     }
 
