@@ -113,6 +113,69 @@ enum WeekMath {
     }
 }
 
+enum PaceMood: String, Equatable, Sendable {
+    case done, ahead, onTrack, danger, critical
+}
+
+enum RaceMood: String, Equatable, Sendable {
+    case none, winning, tied, losing
+}
+
+enum MoodMath {
+    static let workStartHour = 8
+    static let workHours = 16.0
+
+    static func expected(goal: Int, now: Date, calendar: Calendar = .current) -> Double {
+        let start = calendar.startOfDay(for: now)
+        let workStart = calendar.date(bySettingHour: workStartHour, minute: 0, second: 0, of: now)
+            ?? start.addingTimeInterval(Double(workStartHour) * 3600)
+        if now <= workStart { return 0 }
+        let elapsed = now.timeIntervalSince(workStart)
+        return Double(max(0, goal)) * min(1, elapsed / (workHours * 3600))
+    }
+
+    static func pace(count: Int, goal: Int, now: Date, calendar: Calendar = .current) -> PaceMood {
+        if count >= goal { return .done }
+        let needed = expected(goal: goal, now: now, calendar: calendar)
+        if needed < 3 {
+            return count > 0 ? .ahead : .onTrack
+        }
+        let ratio = Double(count) / needed
+        if ratio >= 1.05 { return .ahead }
+        if ratio >= 0.75 { return .onTrack }
+        if ratio >= 0.45 { return .danger }
+        return .critical
+    }
+
+    static func race(you: Int, them: Int, hasRival: Bool) -> RaceMood {
+        guard hasRival else { return .none }
+        if you > them { return .winning }
+        if you < them { return .losing }
+        return .tied
+    }
+
+    static func statusLine(pace: PaceMood, race: RaceMood, remaining: Int, rival: String) -> String {
+        switch pace {
+        case .done:
+            return race == .losing ? "Goal hit — still chasing @\(rival)" : "Goal hit"
+        case .critical:
+            if race == .losing { return "Behind pace and losing. Go." }
+            return "Danger — \(remaining) more or you miss the goal"
+        case .danger:
+            if race == .losing { return "Off pace and trailing @\(rival)" }
+            return "Off pace — \(remaining) still to go"
+        case .ahead:
+            if race == .winning { return "Cooking. You’re up on @\(rival)" }
+            if race == .losing { return "On pace, but @\(rival) is ahead" }
+            return "Ahead of pace"
+        case .onTrack:
+            if race == .losing { return "On pace, trailing @\(rival)" }
+            if race == .winning { return "On pace and leading" }
+            return "On pace"
+        }
+    }
+}
+
 enum RivalMath {
     static func cleaned(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)

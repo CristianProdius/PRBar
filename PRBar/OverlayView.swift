@@ -7,6 +7,9 @@ struct OverlayView: View {
         state.isHovered || state.menuOpen
     }
 
+    private var paceColor: Color { MoodColors.fill(state.paceMood) }
+    private var raceColor: Color { MoodColors.race(state.raceMood) }
+
     private var islandShape: UnevenRoundedRectangle {
         UnevenRoundedRectangle(
             topLeadingRadius: 0,
@@ -34,10 +37,11 @@ struct OverlayView: View {
             } else {
                 PulseBar(
                     ratio: state.ratio,
-                    live: false,
-                    celebrating: state.celebrating,
+                    live: state.paceMood == .critical || state.raceMood == .losing,
+                    celebrating: state.paceMood == .done,
                     justMerged: state.justMerged,
-                    compact: true
+                    compact: true,
+                    fill: paceColor
                 )
                 .frame(height: 6)
             }
@@ -47,7 +51,7 @@ struct OverlayView: View {
         .padding(.bottom, showFull ? 14 : 9)
         .frame(width: OverlayPanel.cardWidth, alignment: .leading)
         .background(Color.black, in: islandShape)
-        .overlay(islandShape.strokeBorder(Color.white.opacity(0.06), lineWidth: 1))
+        .overlay(islandShape.strokeBorder(paceColor.opacity(state.paceMood == .onTrack ? 0.06 : 0.35), lineWidth: 1))
         .clipShape(islandShape)
         .animation(.easeInOut(duration: 0.18), value: showFull)
     }
@@ -58,13 +62,13 @@ struct OverlayView: View {
                 Text("\(state.count)")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(paceColor)
                 Text("you")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.4))
                 Text("vs")
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.22))
+                    .foregroundStyle(raceColor.opacity(0.7))
                 Text(rivalShort)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color.white.opacity(0.4))
@@ -72,7 +76,7 @@ struct OverlayView: View {
                 Text(state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(state.raceMood == .losing ? MoodColors.losing : Color.white)
             }
             .frame(maxWidth: .infinity)
 
@@ -97,12 +101,12 @@ struct OverlayView: View {
     private var fullHeader: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Text(state.goalMet ? "Goal hit" : "Today")
+                Text(state.goalMet ? "Goal hit" : MoodColors.shortLabel(state.paceMood))
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.white)
-                Text(state.raceHeadline)
+                    .foregroundStyle(paceColor)
+                Text(state.moodLine)
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.38))
+                    .foregroundStyle(Color.white.opacity(0.42))
                     .lineLimit(1)
                 Spacer(minLength: 0)
                 overflowButton
@@ -112,7 +116,7 @@ struct OverlayView: View {
                 Text("\(state.count)")
                     .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(paceColor)
                 Text("/\(state.goal)")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .monospacedDigit()
@@ -165,17 +169,17 @@ struct OverlayView: View {
 
     private var raceTrack: some View {
         VStack(alignment: .leading, spacing: 5) {
-            labeledBar(name: youLabel, score: "\(state.count)", ratio: state.ratio, gold: state.celebrating)
+            labeledBar(name: youLabel, score: "\(state.count)", ratio: state.ratio, fill: paceColor)
             labeledBar(
                 name: rivalLabel,
                 score: state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)",
                 ratio: state.rivalUsername.isEmpty ? 0 : state.rivalRatio,
-                gold: state.rivalCount > state.count && !state.rivalUsername.isEmpty
+                fill: state.raceMood == .losing ? MoodColors.losing : Color.white
             )
         }
     }
 
-    private func labeledBar(name: String, score: String, ratio: Double, gold: Bool) -> some View {
+    private func labeledBar(name: String, score: String, ratio: Double, fill: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             HStack {
                 Text(name)
@@ -185,9 +189,9 @@ struct OverlayView: View {
                 Text(score)
                     .font(.system(size: 10, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .foregroundStyle(fill.opacity(0.9))
             }
-            PulseBar(ratio: ratio, live: false, celebrating: gold, justMerged: false, compact: true)
+            PulseBar(ratio: ratio, live: false, celebrating: false, justMerged: false, compact: true, fill: fill)
                 .frame(height: 8)
         }
     }
@@ -264,12 +268,50 @@ struct OverlayView: View {
     }
 }
 
+enum MoodColors {
+    static let losing = Color(red: 1.0, green: 0.38, blue: 0.36)
+    static let winning = Color(red: 0.45, green: 0.92, blue: 0.62)
+    static let danger = Color(red: 1.0, green: 0.72, blue: 0.22)
+    static let critical = Color(red: 1.0, green: 0.36, blue: 0.32)
+    static let gold = Color(red: 0.96, green: 0.82, blue: 0.38)
+    static let ahead = Color(red: 0.52, green: 0.94, blue: 0.72)
+
+    static func fill(_ mood: PaceMood) -> Color {
+        switch mood {
+        case .done: return gold
+        case .ahead: return ahead
+        case .onTrack: return .white
+        case .danger: return danger
+        case .critical: return critical
+        }
+    }
+
+    static func race(_ mood: RaceMood) -> Color {
+        switch mood {
+        case .winning: return winning
+        case .losing: return losing
+        case .tied, .none: return .white
+        }
+    }
+
+    static func shortLabel(_ mood: PaceMood) -> String {
+        switch mood {
+        case .done: return "Goal hit"
+        case .ahead: return "Ahead"
+        case .onTrack: return "On pace"
+        case .danger: return "Off pace"
+        case .critical: return "Danger"
+        }
+    }
+}
+
 struct PulseBar: View {
     let ratio: Double
     let live: Bool
     let celebrating: Bool
     let justMerged: Bool
     let compact: Bool
+    var fill: Color = .white
 
     private let segments = 22
 
@@ -355,17 +397,17 @@ struct PulseBar: View {
             return Color(red: 0.31, green: 0.58, blue: 1.0)
         }
         if celebrating && isFilled(index) {
-            return Color(red: 0.98, green: 0.86, blue: 0.42)
+            return MoodColors.gold
         }
         if isFilled(index) {
             if live {
                 let dist = Double(max(0, revealed - 1 - index))
                 let wave = (sin(time * 4.2 - dist * 0.55) + 1) / 2
-                return Color.white.opacity(0.75 + 0.25 * wave)
+                return fill.opacity(0.72 + 0.28 * wave)
             }
-            return Color.white
+            return fill
         }
-        return Color.white.opacity(0.12)
+        return fill.opacity(0.14)
     }
 }
 

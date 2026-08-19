@@ -56,6 +56,11 @@ final class AppState: ObservableObject {
     var rivalRatio: Double { ProgressMath.ratio(count: rivalCount, goal: goal) }
     var goalMet: Bool { count >= goal }
     var raceHeadline: String { RivalMath.headline(you: count, them: rivalCount, rival: rivalUsername) }
+    var paceMood: PaceMood { MoodMath.pace(count: count, goal: goal, now: Date()) }
+    var raceMood: RaceMood { MoodMath.race(you: count, them: rivalCount, hasRival: !rivalUsername.isEmpty) }
+    var moodLine: String {
+        MoodMath.statusLine(pace: paceMood, race: raceMood, remaining: max(0, goal - count), rival: rivalUsername)
+    }
     var shouldShowHUD: Bool {
         hudVisible && !(hideInFullscreen && isFullscreenSpace)
     }

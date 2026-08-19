@@ -153,6 +153,43 @@ final class WeekMathTests: XCTestCase {
     }
 }
 
+final class MoodMathTests: XCTestCase {
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
+    private func date(_ h: Int, _ m: Int = 0) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: 8, day: 19, hour: h, minute: m))!
+    }
+
+    func testMorningGraceIsNotCritical() {
+        XCTAssertEqual(MoodMath.pace(count: 0, goal: 50, now: date(8, 30), calendar: calendar), .onTrack)
+        XCTAssertEqual(MoodMath.pace(count: 2, goal: 50, now: date(8, 30), calendar: calendar), .ahead)
+    }
+
+    func testAfternoonBehindIsDangerOrCritical() {
+        // 16:00 is 8h into a 16h window → expected 25/50
+        XCTAssertEqual(MoodMath.pace(count: 25, goal: 50, now: date(16), calendar: calendar), .onTrack)
+        XCTAssertEqual(MoodMath.pace(count: 30, goal: 50, now: date(16), calendar: calendar), .ahead)
+        XCTAssertEqual(MoodMath.pace(count: 14, goal: 50, now: date(16), calendar: calendar), .danger)
+        XCTAssertEqual(MoodMath.pace(count: 5, goal: 50, now: date(16), calendar: calendar), .critical)
+    }
+
+    func testGoalHitIsDone() {
+        XCTAssertEqual(MoodMath.pace(count: 50, goal: 50, now: date(10), calendar: calendar), .done)
+        XCTAssertEqual(MoodMath.pace(count: 80, goal: 50, now: date(10), calendar: calendar), .done)
+    }
+
+    func testRace() {
+        XCTAssertEqual(MoodMath.race(you: 3, them: 1, hasRival: true), .winning)
+        XCTAssertEqual(MoodMath.race(you: 1, them: 4, hasRival: true), .losing)
+        XCTAssertEqual(MoodMath.race(you: 2, them: 2, hasRival: true), .tied)
+        XCTAssertEqual(MoodMath.race(you: 0, them: 9, hasRival: false), .none)
+    }
+}
+
 final class NotchLayoutTests: XCTestCase {
     func testCentersOnTopOfScreen() {
         let screen = CGRect(x: 2560, y: 0, width: 1512, height: 982)
