@@ -21,20 +21,16 @@ struct OverlayView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: showFull ? 10 : 5) {
+        VStack(alignment: .leading, spacing: showFull ? 12 : 6) {
             if showFull {
                 fullHeader
-            } else {
-                compactRow
-            }
-
-            if showFull {
                 raceTrack
                 ScrollView(.vertical, showsIndicators: false) {
                     fullDetails
                 }
-                .frame(maxHeight: 168)
+                .frame(maxHeight: 156)
             } else {
+                compactRow
                 PulseBar(
                     ratio: state.ratio,
                     live: state.paceMood == .critical || state.raceMood == .losing,
@@ -43,48 +39,50 @@ struct OverlayView: View {
                     compact: true,
                     fill: paceColor
                 )
-                .frame(height: 6)
+                .frame(height: 5)
             }
         }
-        .padding(.horizontal, showFull ? 16 : 14)
-        .padding(.top, showFull ? 8 : 5)
-        .padding(.bottom, showFull ? 14 : 9)
+        .padding(.horizontal, showFull ? 16 : 16)
+        .padding(.top, showFull ? 10 : 6)
+        .padding(.bottom, showFull ? 14 : 10)
         .frame(width: OverlayPanel.cardWidth, alignment: .leading)
         .background(Color.black, in: islandShape)
-        .overlay(islandShape.strokeBorder(paceColor.opacity(state.paceMood == .onTrack ? 0.06 : 0.35), lineWidth: 1))
+        .overlay(islandShape.strokeBorder(paceColor.opacity(state.paceMood == .onTrack ? 0.08 : 0.4), lineWidth: 1))
         .clipShape(islandShape)
-        .animation(.easeInOut(duration: 0.18), value: showFull)
+        .animation(.easeInOut(duration: 0.2), value: showFull)
+        .animation(.easeInOut(duration: 0.35), value: state.paceMood)
+        .animation(.easeInOut(duration: 0.35), value: state.raceMood)
     }
 
     private var compactRow: some View {
-        ZStack {
-            HStack(spacing: 7) {
-                Text("\(state.count)")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(paceColor)
-                Text("you")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.4))
-                Text("vs")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundStyle(raceColor.opacity(0.7))
-                Text(rivalShort)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.4))
-                    .lineLimit(1)
-                Text(state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(state.raceMood == .losing ? MoodColors.losing : Color.white)
-            }
-            .frame(maxWidth: .infinity)
-
-            HStack {
-                Spacer()
-                overflowButton
-            }
+        HStack(spacing: 0) {
+            compactScore(value: "\(state.count)", caption: "you", color: paceColor)
+            Text("vs")
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .foregroundStyle(raceColor.opacity(0.55))
+                .frame(width: 28)
+            compactScore(
+                value: state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)",
+                caption: rivalShort,
+                color: state.raceMood == .losing ? MoodColors.losing : Color.white
+            )
+            Spacer(minLength: 8)
+            overflowButton
         }
+    }
+
+    private func compactScore(value: String, caption: String, color: Color) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(color)
+            Text(caption)
+                .font(.system(size: 8, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.32))
+                .lineLimit(1)
+        }
+        .frame(minWidth: 44)
     }
 
     private var youLabel: String { "you" }
@@ -99,68 +97,65 @@ struct OverlayView: View {
     }
 
     private var fullHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text(state.goalMet ? "Goal hit" : MoodColors.shortLabel(state.paceMood))
-                    .font(.system(size: 12, weight: .semibold))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Text(MoodColors.shortLabel(state.paceMood))
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(paceColor)
-                Text(state.moodLine)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.42))
-                    .lineLimit(1)
-                Spacer(minLength: 0)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(paceColor.opacity(0.14), in: Capsule())
+                Spacer(minLength: 8)
                 overflowButton
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(state.count)")
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(paceColor)
                 Text("/\(state.goal)")
                     .font(.system(size: 13, weight: .medium, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.3))
+                    .foregroundStyle(Color.white.opacity(0.28))
                 if let badge = deltaBadge {
                     Text(badge.text)
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.8))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.08), in: Capsule())
+                        .foregroundStyle(Color.white.opacity(0.55))
+                        .padding(.leading, 4)
                 }
-                Text("vs yesterday")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.white.opacity(0.3))
                 Spacer(minLength: 0)
             }
+
+            Text(state.moodLine)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.white.opacity(0.4))
+                .lineLimit(1)
         }
     }
 
     private var fullDetails: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            WeekStrip(days: state.weekDays, fill: Color.white, onDark: true)
-
-            rivalField
+        VStack(alignment: .leading, spacing: 12) {
+            WeekStrip(days: state.weekDays, fill: paceColor, onDark: true)
 
             if !state.openPRs.isEmpty {
-                sectionLabel("In flight")
-                ForEach(state.openPRs.prefix(3)) { pr in
-                    prRow(pr)
-                }
+                prSection(title: "In flight", items: Array(state.openPRs.prefix(3)))
             }
+            prSection(title: "Merged today", items: Array(state.prs.prefix(3)), empty: state.lastError ?? "None yet")
 
-            sectionLabel("Merged today")
-            if let error = state.lastError, state.prs.isEmpty {
-                Text(error)
+            rivalField
+        }
+    }
+
+    private func prSection(title: String, items: [MergedPR], empty: String? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            sectionLabel(title)
+            if items.isEmpty {
+                Text(empty ?? "None yet")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.5))
-            } else if state.prs.isEmpty {
-                Text("None yet")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.35))
+                    .foregroundStyle(Color.white.opacity(0.32))
             } else {
-                ForEach(state.prs.prefix(3)) { pr in
+                ForEach(items) { pr in
                     prRow(pr)
                 }
             }
@@ -228,14 +223,14 @@ struct OverlayView: View {
         Button {
             state.open(pr)
         } label: {
-            VStack(alignment: .leading, spacing: 1) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(pr.title)
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.9))
+                    .foregroundStyle(Color.white.opacity(0.88))
                     .lineLimit(1)
                 Text(pr.repo)
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Color.white.opacity(0.32))
+                    .foregroundStyle(Color.white.opacity(0.28))
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -317,7 +312,6 @@ struct PulseBar: View {
 
     @State private var revealed = 0
     @State private var hoverIndex: Int?
-    @State private var revealTask: Task<Void, Never>?
 
     var body: some View {
         GeometryReader { geo in
@@ -351,33 +345,16 @@ struct PulseBar: View {
         }
         .onAppear {
             revealed = targetFilled
-            if live { playReveal() }
-        }
-        .onChange(of: live) { _, on in
-            if on { playReveal() } else {
-                revealTask?.cancel()
-                revealed = targetFilled
-            }
         }
         .onChange(of: targetFilled) { _, value in
-            if !live { revealed = value }
+            withAnimation(.easeOut(duration: 0.35)) {
+                revealed = value
+            }
         }
     }
 
     private var targetFilled: Int {
         Int((ratio * Double(segments)).rounded())
-    }
-
-    private func playReveal() {
-        revealTask?.cancel()
-        revealed = 0
-        revealTask = Task { @MainActor in
-            for index in 0...max(targetFilled, 0) {
-                if Task.isCancelled { return }
-                revealed = index
-                try? await Task.sleep(nanoseconds: 20_000_000)
-            }
-        }
     }
 
     private func isFilled(_ index: Int) -> Bool {

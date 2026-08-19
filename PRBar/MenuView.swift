@@ -4,18 +4,18 @@ struct MenuView: View {
     @ObservedObject var state: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Today")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(MoodColors.shortLabel(state.paceMood))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(MoodColors.fill(state.paceMood))
                     Text("\(state.count)/\(state.goal)")
                         .font(.system(size: 22, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                     if !state.rivalUsername.isEmpty {
                         Text("you \(state.count)  vs  \(state.rivalCount) @\(state.rivalUsername)")
-                            .font(.caption.weight(.medium))
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -30,48 +30,21 @@ struct MenuView: View {
                 }
             }
 
-            WeekStrip(days: state.weekDays, fill: Color.accentColor, onDark: false)
-                .padding(.vertical, 2)
+            Text(state.moodLine)
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-            if !state.openPRs.isEmpty {
-                Text("\(state.openPRs.count) open")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if let latest = state.prs.first {
-                Text(latest.title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            } else if let error = state.lastError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                Text("No merges yet today")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if let username = Optional(state.username), !username.isEmpty {
-                Text("@\(username)" + (state.lastUpdated.map { " · \($0.formatted(date: .omitted, time: .shortened))" } ?? ""))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+            WeekStrip(days: state.weekDays, fill: MoodColors.fill(state.paceMood), onDark: false)
 
             Divider()
 
-            HStack {
+            VStack(alignment: .leading, spacing: 8) {
                 Text("Rival")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
                 TextField("github username", text: $state.rivalDraft)
                     .textFieldStyle(.roundedBorder)
                     .onSubmit { state.setRival(state.rivalDraft) }
-            }
-            if !state.rivalUsername.isEmpty {
-                Text(state.raceHeadline)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             Stepper(value: Binding(
