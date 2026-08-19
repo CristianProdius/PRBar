@@ -30,7 +30,7 @@ final class OverlayPanel: NSPanel {
 
     init(state: AppState) {
         self.state = state
-        let rect = NSRect(x: 0, y: 0, width: 220, height: 58)
+        let rect = NSRect(x: 0, y: 0, width: 292, height: 132)
         super.init(
             contentRect: rect,
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
@@ -72,8 +72,8 @@ final class OverlayPanel: NSPanel {
         hostingView.invalidateIntrinsicContentSize()
         hostingView.layoutSubtreeIfNeeded()
         var size = hostingView.fittingSize
-        size.width = max(188, ceil(size.width) + 2)
-        size.height = max(52, ceil(size.height) + 2)
+        size.width = max(292, ceil(size.width) + 2)
+        size.height = max(124, ceil(size.height) + 2)
         var next = frame
         let top = next.maxY
         next.size = size

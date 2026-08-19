@@ -3,120 +3,123 @@ import SwiftUI
 struct OverlayView: View {
     @ObservedObject var state: AppState
 
-    private var showWide: Bool {
-        state.isHovered || state.isExpanded || state.justMerged || state.celebrating
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            islandBar
+        VStack(alignment: .leading, spacing: 10) {
+            header
             if let whisper = state.whisperTitle, !state.isExpanded {
                 Text(whisper)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.82))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.55))
                     .lineLimit(1)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity)
             }
-            WeekStrip(days: state.weekDays, fill: fillColor)
+            PulseBar(
+                ratio: state.ratio,
+                celebrating: state.celebrating,
+                justMerged: state.justMerged
+            )
             if state.isExpanded {
                 expandedList
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, state.isExpanded ? 10 : 8)
-        .frame(width: state.isExpanded ? 300 : (showWide ? 268 : 200), alignment: .leading)
-        .background { IslandBackground(expanded: state.isExpanded, celebrating: state.celebrating) }
-        .clipShape(islandShape)
-        .overlay(
-            islandShape.strokeBorder(
-                state.celebrating ? Color(red: 0.98, green: 0.82, blue: 0.32).opacity(0.95) : Color.white.opacity(0.18),
-                lineWidth: state.celebrating ? 1.4 : 0.8
-            )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(width: state.isExpanded ? 320 : 292, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(red: 0.07, green: 0.07, blue: 0.075))
         )
-        .scaleEffect(state.celebrating ? 1.06 : (state.justMerged ? 1.03 : 1))
-        .animation(.spring(duration: 0.42, bounce: 0.34), value: state.justMerged)
-        .animation(.spring(duration: 0.5, bounce: 0.28), value: state.celebrating)
-        .animation(.snappy(duration: 0.22), value: showWide)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(
+                    state.celebrating
+                        ? Color.white.opacity(0.28)
+                        : Color.white.opacity(0.06),
+                    lineWidth: 1
+                )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .scaleEffect(state.celebrating ? 1.02 : 1)
+        .animation(.spring(duration: 0.45, bounce: 0.28), value: state.celebrating)
         .animation(.snappy(duration: 0.22), value: state.isExpanded)
         .animation(.snappy(duration: 0.22), value: state.whisperTitle)
     }
 
-    private var islandShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: state.isExpanded ? 18 : 18, style: .continuous)
-    }
-
-    private var islandBar: some View {
-        Button {
-            withAnimation(.snappy(duration: 0.22)) {
-                state.isExpanded.toggle()
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(state.goalMet ? "Goal hit" : "Today")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.white)
+                Spacer()
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.28))
             }
-        } label: {
-            HStack(spacing: 8) {
-                Text("\(state.count)")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(fillColor)
-                Text("/\(state.goal)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.55))
 
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.12))
-                        Capsule()
-                            .fill(fillColor)
-                            .frame(width: max(7, geo.size.width * state.ratio))
-                            .shadow(color: fillColor.opacity(0.55), radius: 4, y: 0)
-                            .animation(.spring(duration: 0.5, bounce: 0.18), value: state.ratio)
+            Text(subtitle)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.white.opacity(0.38))
+                .lineLimit(1)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(height: 1)
+
+            HStack(alignment: .center, spacing: 8) {
+                Button {
+                    withAnimation(.snappy(duration: 0.22)) {
+                        state.isExpanded.toggle()
                     }
+                } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text("\(state.count)")
+                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.white)
+                        Text("/\(state.goal)")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.white.opacity(0.32))
+                    }
+                    .contentShape(Rectangle())
                 }
-                .frame(height: 5)
+                .buttonStyle(.plain)
 
-                if state.celebrating {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color(red: 0.98, green: 0.82, blue: 0.32))
-                        .transition(.scale.combined(with: .opacity))
-                } else if state.justMerged {
-                    Text("+1")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundStyle(fillColor)
-                        .transition(.scale.combined(with: .opacity))
-                } else if state.goalMet {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(Color(red: 0.98, green: 0.82, blue: 0.32))
-                } else if state.lastError != nil {
-                    Image(systemName: "exclamationmark")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.orange)
+                if let badge = deltaBadge {
+                    Text(badge.text)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(badge.up ? Color.white : Color.white.opacity(0.7))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.white.opacity(0.08), in: Capsule())
                 }
+
+                Text("vs yesterday")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.white.opacity(0.32))
+
+                Spacer(minLength: 0)
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .help(helpText)
     }
 
     private var expandedList: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Rectangle()
-                .fill(Color.white.opacity(0.08))
-                .frame(height: 1)
-                .padding(.top, 4)
+            WeekStrip(days: state.weekDays, fill: Color.white, onDark: true)
+                .padding(.top, 2)
 
             if let error = state.lastError, state.prs.isEmpty {
                 Text(error)
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.55))
+                    .foregroundStyle(Color.white.opacity(0.5))
                     .fixedSize(horizontal: false, vertical: true)
             } else if state.prs.isEmpty {
                 Text("No merges yet today")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.white.opacity(0.45))
+                    .foregroundStyle(Color.white.opacity(0.38))
             } else {
-                ForEach(state.prs.prefix(6)) { pr in
+                ForEach(state.prs.prefix(5)) { pr in
                     Button {
                         state.open(pr)
                     } label: {
@@ -127,7 +130,7 @@ struct OverlayView: View {
                                 .lineLimit(1)
                             Text(pr.repo)
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(Color.white.opacity(0.38))
+                                .foregroundStyle(Color.white.opacity(0.32))
                                 .lineLimit(1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -135,27 +138,122 @@ struct OverlayView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                if state.prs.count > 6 {
-                    Text("+\(state.prs.count - 6) more")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(Color.white.opacity(0.4))
-                }
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    private var subtitle: String {
+        if state.celebrating || state.goalMet { return "You hit today’s merge goal" }
+        if let whisper = state.whisperTitle { return whisper }
+        if let error = state.lastError { return error }
+        let remaining = max(0, state.goal - state.count)
+        if remaining == 0 { return "You hit today’s merge goal" }
+        if onPace { return "On track to hit \(state.goal) today" }
+        return "\(remaining) more to hit today’s goal"
+    }
+
+    private var onPace: Bool {
+        let calendar = Calendar.current
+        let now = Date()
+        let start = calendar.startOfDay(for: now)
+        let elapsed = now.timeIntervalSince(start)
+        let day: Double = 16 * 3600
+        let expected = ProgressMath.ratio(count: Int((elapsed / day) * Double(state.goal)), goal: state.goal)
+        return state.ratio + 0.02 >= min(1, expected)
+    }
+
+    private var deltaBadge: (text: String, up: Bool)? {
+        guard state.weekDays.count >= 2 else { return nil }
+        let yesterday = state.weekDays[state.weekDays.count - 2].count
+        let delta = state.count - yesterday
+        if delta > 0 { return ("↗ \(delta)", true) }
+        if delta < 0 { return ("↘ \(abs(delta))", false) }
+        return ("→ 0", false)
+    }
+}
+
+struct PulseBar: View {
+    let ratio: Double
+    let celebrating: Bool
+    let justMerged: Bool
+
+    private let segments = 22
+
+    @State private var pulse = false
+    @State private var hoverIndex: Int?
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<segments, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                    .fill(color(for: index))
+                    .frame(width: 8, height: height(for: index))
+                    .opacity(opacity(for: index))
+                    .shadow(color: glow(for: index), radius: hoverIndex == index ? 6 : 0)
+                    .animation(.easeInOut(duration: 0.18), value: hoverIndex)
+                    .animation(.easeInOut(duration: 1.05), value: pulse)
+                    .animation(.spring(duration: 0.45, bounce: 0.2), value: filledCount)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let location):
+                let width: CGFloat = 11
+                hoverIndex = min(segments - 1, max(0, Int(location.x / width)))
+            case .ended:
+                hoverIndex = nil
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.05).repeatForever(autoreverses: true)) {
+                pulse = true
             }
         }
     }
 
-    private var fillColor: Color {
-        if state.goalMet || state.celebrating { return Color(red: 0.98, green: 0.82, blue: 0.32) }
-        if state.ratio < 0.5 { return Color(red: 1.0, green: 0.68, blue: 0.28) }
-        return Color(red: 0.46, green: 0.90, blue: 0.52)
+    private var filledCount: Int {
+        Int((ratio * Double(segments)).rounded())
     }
 
-    private var helpText: String {
-        if let error = state.lastError { return error }
-        if let latest = state.prs.first {
-            return "\(state.count)/\(state.goal) · last: \(latest.title)"
+    private func isFilled(_ index: Int) -> Bool {
+        index < filledCount
+    }
+
+    private func color(for index: Int) -> Color {
+        if hoverIndex == index {
+            return Color(red: 0.31, green: 0.58, blue: 1.0)
         }
-        return "\(state.count) merged today · goal \(state.goal)"
+        if celebrating && isFilled(index) {
+            return Color(red: 0.98, green: 0.86, blue: 0.42)
+        }
+        if isFilled(index) {
+            return Color.white
+        }
+        return Color.white.opacity(0.12)
+    }
+
+    private func height(for index: Int) -> CGFloat {
+        if hoverIndex == index { return 26 }
+        if index == filledCount - 1 && pulse { return 24 }
+        return 22
+    }
+
+    private func opacity(for index: Int) -> Double {
+        if hoverIndex == index { return 1 }
+        if !isFilled(index) { return 1 }
+        if index == filledCount - 1 {
+            return pulse ? 1 : 0.45
+        }
+        if justMerged && index >= filledCount - 3 {
+            return pulse ? 1 : 0.6
+        }
+        return 1
+    }
+
+    private func glow(for index: Int) -> Color {
+        hoverIndex == index ? Color(red: 0.31, green: 0.58, blue: 1.0).opacity(0.85) : .clear
     }
 }
 
@@ -196,28 +294,5 @@ struct WeekStrip: View {
             return Color.white.opacity(day.isToday ? 0.7 : 0.32)
         }
         return Color.secondary.opacity(day.isToday ? 1 : 0.7)
-    }
-}
-
-private struct IslandBackground: NSViewRepresentable {
-    var expanded: Bool
-    var celebrating: Bool
-
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .hudWindow
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.wantsLayer = true
-        view.layer?.masksToBounds = true
-        view.layer?.cornerCurve = .continuous
-        view.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.22).cgColor
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {
-        view.layer?.cornerRadius = expanded ? 18 : 18
-        view.layer?.masksToBounds = true
-        view.layer?.backgroundColor = NSColor.black.withAlphaComponent(celebrating ? 0.12 : 0.22).cgColor
     }
 }
