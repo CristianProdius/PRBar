@@ -60,6 +60,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             .store(in: &observers)
 
+        state.$overflowTick
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.overlay?.showOverflowMenu()
+            }
+            .store(in: &observers)
+
         Publishers.Merge4(
             state.$isExpanded.map { _ in () },
             state.$isHovered.map { _ in () },

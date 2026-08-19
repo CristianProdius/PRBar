@@ -16,6 +16,8 @@ final class AppState: ObservableObject {
     @Published private(set) var isLoading = false
     @Published var isExpanded = false
     @Published var isHovered = false
+    @Published var menuOpen = false
+    @Published var overflowTick = 0
     @Published var justMerged = false
     @Published var celebrating = false
     @Published var whisperTitle: String?
@@ -133,6 +135,11 @@ final class AppState: ObservableObject {
         hudVisible = true
         isExpanded = false
         positionToken += 1
+    }
+
+    func requestOverflowMenu() {
+        menuOpen = true
+        overflowTick += 1
     }
 
     func toggleLaunchAtLogin() {

@@ -30,7 +30,7 @@ final class OverlayPanel: NSPanel {
 
     init(state: AppState) {
         self.state = state
-        let rect = NSRect(x: 0, y: 0, width: 292, height: 132)
+        let rect = NSRect(x: 0, y: 0, width: 380, height: 52)
         super.init(
             contentRect: rect,
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
@@ -72,8 +72,9 @@ final class OverlayPanel: NSPanel {
         hostingView.invalidateIntrinsicContentSize()
         hostingView.layoutSubtreeIfNeeded()
         var size = hostingView.fittingSize
-        size.width = max(292, ceil(size.width) + 2)
-        size.height = max(124, ceil(size.height) + 2)
+        let full = state.isHovered || state.isExpanded || state.justMerged || state.celebrating || state.menuOpen
+        size.width = max(full ? 420 : 380, ceil(size.width) + 2)
+        size.height = max(full ? 168 : 48, ceil(size.height) + 2)
         var next = frame
         let top = next.maxY
         next.size = size
@@ -89,6 +90,77 @@ final class OverlayPanel: NSPanel {
             return
         }
         centerOnMouseScreen()
+    }
+
+    func showOverflowMenu() {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        let refresh = NSMenuItem(title: "Refresh", action: #selector(overflowRefresh), keyEquivalent: "r")
+        refresh.target = self
+        menu.addItem(refresh)
+
+        let bring = NSMenuItem(title: "Bring bar here", action: #selector(overflowBring), keyEquivalent: "")
+        bring.target = self
+        menu.addItem(bring)
+
+        menu.addItem(.separator())
+
+        let hide = NSMenuItem(title: state.hudVisible ? "Hide on-screen bar" : "Show on-screen bar", action: #selector(overflowToggleBar), keyEquivalent: "")
+        hide.target = self
+        menu.addItem(hide)
+
+        let sound = NSMenuItem(title: "Sound on merge", action: #selector(overflowToggleSound), keyEquivalent: "")
+        sound.state = state.soundEnabled ? .on : .off
+        sound.target = self
+        menu.addItem(sound)
+
+        let fullscreen = NSMenuItem(title: "Hide on fullscreen spaces", action: #selector(overflowToggleFullscreen), keyEquivalent: "")
+        fullscreen.state = state.hideInFullscreen ? .on : .off
+        fullscreen.target = self
+        menu.addItem(fullscreen)
+
+        menu.addItem(.separator())
+
+        let quit = NSMenuItem(title: "Quit PRBar", action: #selector(overflowQuit), keyEquivalent: "q")
+        quit.target = self
+        menu.addItem(quit)
+
+        let point = mousePointInHostingView()
+        menu.popUp(positioning: nil, at: point, in: hostingView)
+        state.menuOpen = false
+        fitContent()
+    }
+
+    @objc private func overflowRefresh() {
+        Task { await state.refresh() }
+    }
+
+    @objc private func overflowBring() {
+        resetToMouseScreen()
+    }
+
+    @objc private func overflowToggleBar() {
+        state.hudVisible.toggle()
+    }
+
+    @objc private func overflowToggleSound() {
+        state.soundEnabled.toggle()
+    }
+
+    @objc private func overflowToggleFullscreen() {
+        state.hideInFullscreen.toggle()
+    }
+
+    @objc private func overflowQuit() {
+        state.quit()
+    }
+
+    private func mousePointInHostingView() -> NSPoint {
+        guard let hostingView else {
+            return NSPoint(x: 360, y: 36)
+        }
+        return hostingView.convert(mouseLocationOutsideOfEventStream, from: nil)
     }
 
     func resetToMouseScreen() {
@@ -108,7 +180,7 @@ final class OverlayPanel: NSPanel {
         }
     }
 
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
     private func centerOnMouseScreen() {
@@ -155,9 +227,10 @@ final class OverlayPanel: NSPanel {
         state.isHovered = false
         collapseTask?.cancel()
         collapseTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 280_000_000)
-            guard let self, !Task.isCancelled, !self.state.isHovered else { return }
-            withAnimation(.snappy(duration: 0.2)) {
+            try? await Task.sleep(nanoseconds: 420_000_000)
+            guard let self, !Task.isCancelled else { return }
+            guard !self.state.isHovered, !self.state.menuOpen else { return }
+            withAnimation(.spring(duration: 0.32, bounce: 0.12)) {
                 self.state.isExpanded = false
             }
             self.fitContent()
