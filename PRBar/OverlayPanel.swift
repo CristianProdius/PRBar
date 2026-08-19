@@ -26,7 +26,7 @@ final class ClearHostingView<Content: View>: NSHostingView<Content> {
 
 final class OverlayPanel: NSPanel {
     static let cardWidth: CGFloat = 380
-    static let compactSize = NSSize(width: 380, height: 44)
+    static let compactSize = NSSize(width: 380, height: 36)
     static let expandedSize = NSSize(width: 380, height: 292)
 
     private var hostingView: ClearHostingView<OverlayView>?

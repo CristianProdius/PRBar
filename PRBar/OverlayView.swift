@@ -42,9 +42,9 @@ struct OverlayView: View {
                 .frame(height: 5)
             }
         }
-        .padding(.horizontal, showFull ? 16 : 16)
-        .padding(.top, showFull ? 10 : 6)
-        .padding(.bottom, showFull ? 14 : 10)
+        .padding(.horizontal, showFull ? 16 : 12)
+        .padding(.top, showFull ? 10 : 4)
+        .padding(.bottom, showFull ? 14 : 7)
         .frame(width: OverlayPanel.cardWidth, alignment: .leading)
         .background(Color.black, in: islandShape)
         .overlay(islandShape.strokeBorder(paceColor.opacity(state.paceMood == .onTrack ? 0.08 : 0.4), lineWidth: 1))
@@ -55,34 +55,28 @@ struct OverlayView: View {
     }
 
     private var compactRow: some View {
-        HStack(spacing: 0) {
-            compactScore(value: "\(state.count)", caption: "you", color: paceColor)
+        HStack(spacing: 6) {
+            Text("\(state.count)")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(paceColor)
+            Text("you")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.4))
             Text("vs")
-                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                .foregroundStyle(raceColor.opacity(0.55))
-                .frame(width: 28)
-            compactScore(
-                value: state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)",
-                caption: rivalShort,
-                color: state.raceMood == .losing ? MoodColors.losing : Color.white
-            )
-            Spacer(minLength: 8)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(raceColor.opacity(0.6))
+            Text(state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(state.raceMood == .losing ? MoodColors.losing : Color.white)
+            Text(rivalShort)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color.white.opacity(0.4))
+                .lineLimit(1)
+            Spacer(minLength: 0)
             overflowButton
         }
-    }
-
-    private func compactScore(value: String, caption: String, color: Color) -> some View {
-        VStack(spacing: 1) {
-            Text(value)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(color)
-            Text(caption)
-                .font(.system(size: 8, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.32))
-                .lineLimit(1)
-        }
-        .frame(minWidth: 44)
     }
 
     private var youLabel: String { "you" }
@@ -93,7 +87,7 @@ struct OverlayView: View {
 
     private var rivalShort: String {
         let name = rivalLabel
-        return name.count > 10 ? String(name.prefix(9)) + "…" : name
+        return name.count > 16 ? String(name.prefix(15)) + "…" : name
     }
 
     private var fullHeader: some View {
