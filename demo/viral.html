@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PRBar viral demo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 1280px; height: 720px; overflow: hidden; background: #0a0a0b; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, sans-serif;
+      color: #fff;
+    }
+    .stage {
+      width: 1280px; height: 720px; position: relative;
+      background:
+        radial-gradient(900px 420px at 50% 28%, #1a1a1e 0%, #0a0a0b 62%);
+    }
+    .grain {
+      position: absolute; inset: 0; pointer-events: none; opacity: .08;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .kicker {
+      position: absolute; top: 56px; left: 0; right: 0; text-align: center;
+      font: 600 13px/1 system-ui; letter-spacing: .28em; text-transform: uppercase;
+      color: rgba(255,255,255,.34);
+    }
+    .hud {
+      position: absolute; left: 50%; top: 168px; transform: translateX(-50%);
+      width: 420px; background: #121214;
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 14px; padding: 9px 12px 10px;
+      box-shadow: 0 30px 80px rgba(0,0,0,.55);
+    }
+    .row { display: flex; align-items: baseline; gap: 7px; }
+    .score { font: 650 18px/1 "SF Pro Rounded", ui-rounded, system-ui; font-variant-numeric: tabular-nums; }
+    .who { font: 500 12px/1 system-ui; color: rgba(255,255,255,.4); }
+    .vs { font: 650 11px/1 system-ui; color: rgba(255,255,255,.2); }
+    .dots { margin-left: auto; opacity: .4; letter-spacing: 1px; }
+    .ticks { display: flex; gap: 2.5px; margin-top: 7px; height: 8px; }
+    .ticks i { flex: 1; border-radius: 2px; background: rgba(255,255,255,.12); }
+    .ticks i.on { background: #fff; }
+    .ticks.gold i.on { background: #f6d56a; }
+    .full { display: none; }
+    .head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .title { font: 650 13px/1 system-ui; }
+    .headline { font: 400 12px/1.2 system-ui; color: rgba(255,255,255,.4); }
+    .big { display: flex; align-items: baseline; gap: 8px; margin: 8px 0 12px; }
+    .big .n { font: 650 34px/1 "SF Pro Rounded", ui-rounded, system-ui; font-variant-numeric: tabular-nums; }
+    .big .g { font: 500 14px/1 system-ui; color: rgba(255,255,255,.3); }
+    .pill { font: 650 11px/1 system-ui; padding: 4px 7px; border-radius: 99px; background: rgba(255,255,255,.08); }
+    .lab { display: flex; justify-content: space-between; font: 650 11px/1 system-ui; color: rgba(255,255,255,.5); margin: 8px 0 4px; }
+    .week { display: grid; grid-template-columns: repeat(7,1fr); margin-top: 14px; text-align: center; }
+    .week b { display: block; width: 14px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.12); margin: 0 auto 5px; }
+    .week b.hot { background: #fff; }
+    .week span { font: 500 10px/1 system-ui; color: rgba(255,255,255,.36); }
+    .week .today span { color: rgba(255,255,255,.8); font-weight: 650; }
+    .pr { margin-top: 12px; font: 500 12px/1.3 system-ui; color: rgba(255,255,255,.88); }
+    .repo { font: 400 11px/1.3 ui-monospace, Menlo, monospace; color: rgba(255,255,255,.32); }
+    .cursor {
+      position: absolute; width: 18px; height: 18px; left: 780px; top: 150px;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,.5));
+    }
+    body.s0 .full { display: none; }
+    body.s1 .cursor { left: 690px; top: 188px; }
+    body.s2 .hud { top: 128px; padding: 14px 16px; border-radius: 18px; }
+    body.s2 .mini { display: none; }
+    body.s2 .full { display: block; }
+    body.s2 .cursor { left: 700px; top: 210px; }
+    body.s3 .hud { top: 128px; padding: 14px 16px; border-radius: 18px; }
+    body.s3 .mini { display: none; }
+    body.s3 .full { display: block; }
+    body.s3 .cursor { opacity: 0; }
+    body.s3 .ticks.you i:nth-child(4) { background: #fff; }
+    body.s4 .hud { top: 128px; padding: 14px 16px; border-radius: 18px; }
+    body.s4 .mini { display: none; }
+    body.s4 .full { display: block; }
+    body.s4 .cursor { opacity: 0; }
+    body.s4 .ticks.you i.on, body.s4 .ticks.you i:nth-child(4) { background: #f6d56a; }
+  </style>
+</head>
+<body class="s0">
+  <div class="stage">
+    <div class="grain"></div>
+    <div class="kicker">Daily merge race</div>
+    <div class="hud">
+      <div class="mini">
+        <div class="row">
+          <span class="score">3</span><span class="who">you</span>
+          <span class="vs">vs</span>
+          <span class="who">ion</span><span class="score">2</span>
+          <span class="dots">⋯</span>
+        </div>
+        <div class="ticks" id="mini"></div>
+      </div>
+      <div class="full">
+        <div class="head">
+          <div class="title">Today</div>
+          <div class="headline" id="line">You’re up 1 on @ion</div>
+          <div class="dots">⋯</div>
+        </div>
+        <div class="big">
+          <div class="n" id="big">3</div><div class="g">/50</div>
+          <div class="pill">↗ 3</div><div class="who">vs yesterday</div>
+        </div>
+        <div class="lab"><span>you</span><span id="yl">3</span></div>
+        <div class="ticks you" id="you"></div>
+        <div class="lab"><span>ion</span><span>2</span></div>
+        <div class="ticks" id="them"></div>
+        <div class="week">
+          <div><b></b><span>Thu</span></div>
+          <div><b></b><span>Fri</span></div>
+          <div><b></b><span>Sat</span></div>
+          <div><b></b><span>Sun</span></div>
+          <div><b class="hot"></b><span>Mon</span></div>
+          <div><b class="hot"></b><span>Tue</span></div>
+          <div class="today"><b class="hot"></b><span>Wed</span></div>
+        </div>
+        <div class="pr">feat(sequencer): client-24 product cutover</div>
+        <div class="repo">Ken-Technology/ken-backend</div>
+      </div>
+    </div>
+    <svg class="cursor" viewBox="0 0 16 16">
+      <path fill="#fff" stroke="#111" stroke-width=".8" d="M2 1.5 L2 13.2 L5.2 10.4 L7.4 15.1 L9.2 14.3 L7 9.5 L11.6 9.5 Z"/>
+    </svg>
+  </div>
+  <script>
+    function ticks(id, n) {
+      const el = document.getElementById(id);
+      el.innerHTML = "";
+      for (let i = 0; i < 22; i++) {
+        const x = document.createElement("i");
+        if (i < n) x.classList.add("on");
+        el.appendChild(x);
+      }
+    }
+    const q = new URLSearchParams(location.search);
+    const s = q.get("s") || "0";
+    document.body.className = "s" + s;
+    const you = s === "3" || s === "4" ? 4 : 3;
+    ticks("mini", 3);
+    ticks("you", you);
+    ticks("them", 2);
+    document.getElementById("big").textContent = you;
+    document.getElementById("yl").textContent = you;
+    if (you === 4) document.getElementById("line").textContent = "You’re up 2 on @ion";
+  </script>
+</body>
+</html>
