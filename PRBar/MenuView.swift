@@ -28,6 +28,11 @@ struct MenuView: View {
             WeekStrip(days: state.weekDays, fill: Color.accentColor, onDark: false)
                 .padding(.vertical, 2)
 
+            if !state.openPRs.isEmpty {
+                Text("\(state.openPRs.count) open")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if let latest = state.prs.first {
                 Text(latest.title)
                     .font(.caption)

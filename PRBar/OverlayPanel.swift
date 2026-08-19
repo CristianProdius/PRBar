@@ -24,13 +24,15 @@ final class ClearHostingView<Content: View>: NSHostingView<Content> {
 }
 
 final class OverlayPanel: NSPanel {
+    static let panelSize = NSSize(width: 400, height: 280)
+
     private var hostingView: ClearHostingView<OverlayView>?
     private let state: AppState
     private var collapseTask: Task<Void, Never>?
 
     init(state: AppState) {
         self.state = state
-        let rect = NSRect(x: 0, y: 0, width: 380, height: 52)
+        let rect = NSRect(origin: .zero, size: Self.panelSize)
         super.init(
             contentRect: rect,
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
@@ -50,37 +52,28 @@ final class OverlayPanel: NSPanel {
         isMovableByWindowBackground = true
         hidesOnDeactivate = false
         animationBehavior = .none
+        setContentSize(Self.panelSize)
 
         let hosting = ClearHostingView(rootView: OverlayView(state: state))
         hosting.wantsLayer = true
         hosting.layer?.backgroundColor = NSColor.clear.cgColor
         hosting.layer?.isOpaque = false
         if #available(macOS 14.0, *) {
-            hosting.sizingOptions = [.intrinsicContentSize]
+            hosting.sizingOptions = []
         }
+        hosting.frame = rect
+        hosting.autoresizingMask = [.width, .height]
         contentView = hosting
         contentView?.wantsLayer = true
         contentView?.layer?.backgroundColor = NSColor.clear.cgColor
         hostingView = hosting
         restorePosition()
-        fitContent()
         refreshTracking()
     }
 
     func fitContent() {
-        guard let hostingView else { return }
-        hostingView.invalidateIntrinsicContentSize()
-        hostingView.layoutSubtreeIfNeeded()
-        var size = hostingView.fittingSize
-        let full = state.isHovered || state.isExpanded || state.justMerged || state.celebrating || state.menuOpen
-        size.width = max(full ? 420 : 380, ceil(size.width) + 2)
-        size.height = max(full ? 168 : 48, ceil(size.height) + 2)
-        var next = frame
-        let top = next.maxY
-        next.size = size
-        next.origin.y = top - size.height
-        setFrame(next, display: true, animate: false)
-        hostingView.frame = NSRect(origin: .zero, size: size)
+        setContentSize(Self.panelSize)
+        hostingView?.frame = NSRect(origin: .zero, size: Self.panelSize)
         refreshTracking()
     }
 
@@ -96,84 +89,54 @@ final class OverlayPanel: NSPanel {
         let menu = NSMenu()
         menu.autoenablesItems = false
 
-        let refresh = NSMenuItem(title: "Refresh", action: #selector(overflowRefresh), keyEquivalent: "r")
-        refresh.target = self
-        menu.addItem(refresh)
+        func item(_ title: String, _ sel: Selector, key: String = "") -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: sel, keyEquivalent: key)
+            item.target = self
+            return item
+        }
 
-        let bring = NSMenuItem(title: "Bring bar here", action: #selector(overflowBring), keyEquivalent: "")
-        bring.target = self
-        menu.addItem(bring)
-
+        menu.addItem(item("Refresh", #selector(overflowRefresh), key: "r"))
+        menu.addItem(item("Bring bar here", #selector(overflowBring)))
         menu.addItem(.separator())
+        menu.addItem(item(state.hudVisible ? "Hide on-screen bar" : "Show on-screen bar", #selector(overflowToggleBar)))
 
-        let hide = NSMenuItem(title: state.hudVisible ? "Hide on-screen bar" : "Show on-screen bar", action: #selector(overflowToggleBar), keyEquivalent: "")
-        hide.target = self
-        menu.addItem(hide)
-
-        let sound = NSMenuItem(title: "Sound on merge", action: #selector(overflowToggleSound), keyEquivalent: "")
+        let sound = item("Sound on merge", #selector(overflowToggleSound))
         sound.state = state.soundEnabled ? .on : .off
-        sound.target = self
         menu.addItem(sound)
 
-        let fullscreen = NSMenuItem(title: "Hide on fullscreen spaces", action: #selector(overflowToggleFullscreen), keyEquivalent: "")
+        let fullscreen = item("Hide on fullscreen spaces", #selector(overflowToggleFullscreen))
         fullscreen.state = state.hideInFullscreen ? .on : .off
-        fullscreen.target = self
         menu.addItem(fullscreen)
 
         menu.addItem(.separator())
+        menu.addItem(item("Quit PRBar", #selector(overflowQuit), key: "q"))
 
-        let quit = NSMenuItem(title: "Quit PRBar", action: #selector(overflowQuit), keyEquivalent: "q")
-        quit.target = self
-        menu.addItem(quit)
-
-        let point = mousePointInHostingView()
-        menu.popUp(positioning: nil, at: point, in: hostingView)
+        menu.popUp(positioning: nil, at: mousePointInHostingView(), in: hostingView)
         state.menuOpen = false
-        fitContent()
+        updateHoverFromMouse()
     }
 
-    @objc private func overflowRefresh() {
-        Task { await state.refresh() }
-    }
-
-    @objc private func overflowBring() {
-        resetToMouseScreen()
-    }
-
-    @objc private func overflowToggleBar() {
-        state.hudVisible.toggle()
-    }
-
-    @objc private func overflowToggleSound() {
-        state.soundEnabled.toggle()
-    }
-
-    @objc private func overflowToggleFullscreen() {
-        state.hideInFullscreen.toggle()
-    }
-
-    @objc private func overflowQuit() {
-        state.quit()
-    }
+    @objc private func overflowRefresh() { Task { await state.refresh() } }
+    @objc private func overflowBring() { resetToMouseScreen() }
+    @objc private func overflowToggleBar() { state.hudVisible.toggle() }
+    @objc private func overflowToggleSound() { state.soundEnabled.toggle() }
+    @objc private func overflowToggleFullscreen() { state.hideInFullscreen.toggle() }
+    @objc private func overflowQuit() { state.quit() }
 
     private func mousePointInHostingView() -> NSPoint {
-        guard let hostingView else {
-            return NSPoint(x: 360, y: 36)
-        }
+        guard let hostingView else { return NSPoint(x: 376, y: 260) }
         return hostingView.convert(mouseLocationOutsideOfEventStream, from: nil)
     }
 
     func resetToMouseScreen() {
         state.hudOrigin = nil
         centerOnMouseScreen()
-        fitContent()
         orderFrontRegardless()
     }
 
     func applyVisibility(_ visible: Bool) {
         if visible {
             restorePosition()
-            fitContent()
             orderFrontRegardless()
         } else {
             orderOut(nil)
@@ -186,9 +149,8 @@ final class OverlayPanel: NSPanel {
     private func centerOnMouseScreen() {
         let screen = Self.screenUnderMouse()
         let visible = screen.visibleFrame
-        let size = frame.size
-        let x = visible.midX - size.width / 2
-        let y = visible.maxY - size.height - 10
+        let x = visible.midX - Self.panelSize.width / 2
+        let y = visible.maxY - Self.panelSize.height - 8
         setFrameOrigin(NSPoint(x: x, y: y))
     }
 
@@ -204,13 +166,41 @@ final class OverlayPanel: NSPanel {
             ?? NSScreen.screens[0]
     }
 
+    private func cardRect() -> NSRect {
+        let height: CGFloat = (state.isHovered || state.menuOpen) ? 268 : 52
+        return NSRect(x: 0, y: Self.panelSize.height - height, width: Self.panelSize.width, height: height)
+    }
+
+    private func updateHoverFromMouse() {
+        let point = mousePointInHostingView()
+        let inside = cardRect().insetBy(dx: -4, dy: -4).contains(point)
+        if inside {
+            collapseTask?.cancel()
+            if !state.isHovered { state.isHovered = true }
+        } else if !state.menuOpen {
+            scheduleCollapse()
+        }
+    }
+
+    private func scheduleCollapse() {
+        collapseTask?.cancel()
+        collapseTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard let self, !Task.isCancelled, !self.state.menuOpen else { return }
+            let point = self.mousePointInHostingView()
+            if self.cardRect().insetBy(dx: -4, dy: -4).contains(point) { return }
+            self.state.isHovered = false
+            self.state.isExpanded = false
+        }
+    }
+
     private func refreshTracking() {
         guard let hostingView else { return }
         hostingView.trackingAreas.forEach { hostingView.removeTrackingArea($0) }
         hostingView.addTrackingArea(
             NSTrackingArea(
                 rect: hostingView.bounds,
-                options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+                options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect],
                 owner: self,
                 userInfo: nil
             )
@@ -218,22 +208,16 @@ final class OverlayPanel: NSPanel {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        collapseTask?.cancel()
-        state.isHovered = true
-        fitContent()
+        updateHoverFromMouse()
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        updateHoverFromMouse()
     }
 
     override func mouseExited(with event: NSEvent) {
-        state.isHovered = false
-        collapseTask?.cancel()
-        collapseTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 420_000_000)
-            guard let self, !Task.isCancelled else { return }
-            guard !self.state.isHovered, !self.state.menuOpen else { return }
-            withAnimation(.spring(duration: 0.32, bounce: 0.12)) {
-                self.state.isExpanded = false
-            }
-            self.fitContent()
+        if !state.menuOpen {
+            scheduleCollapse()
         }
     }
 

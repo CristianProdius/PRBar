@@ -68,20 +68,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             .store(in: &observers)
 
-        Publishers.Merge4(
-            state.$isExpanded.map { _ in () },
-            state.$isHovered.map { _ in () },
-            state.$justMerged.map { _ in () },
-            state.$celebrating.map { _ in () }
-        )
-        .receive(on: DispatchQueue.main)
-        .sink { [weak self] _ in
-            DispatchQueue.main.async {
-                self?.overlay?.fitContent()
-            }
-        }
-        .store(in: &observers)
-
         state.start()
     }
 }

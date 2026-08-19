@@ -94,7 +94,7 @@ struct WeekDay: Equatable, Identifiable, Sendable {
 }
 
 enum WeekMath {
-    static let weekdayLabels = ["S", "M", "T", "W", "T", "F", "S"]
+    static let weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
     static func days(
         prs: [MergedPR],

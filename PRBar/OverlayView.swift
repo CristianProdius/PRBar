@@ -4,50 +4,49 @@ struct OverlayView: View {
     @ObservedObject var state: AppState
 
     private var showFull: Bool {
-        state.isHovered || state.isExpanded || state.justMerged || state.celebrating || state.menuOpen
+        state.isHovered || state.menuOpen
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: showFull ? 12 : 0) {
-            if showFull {
-                fullHeader
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            } else {
-                compactRow
-                    .transition(.opacity)
-            }
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: showFull ? 12 : 8) {
+                if showFull {
+                    fullHeader
+                } else {
+                    compactRow
+                }
 
-            PulseBar(
-                ratio: state.ratio,
-                live: showFull,
-                celebrating: state.celebrating,
-                justMerged: state.justMerged,
-                compact: !showFull
+                PulseBar(
+                    ratio: state.ratio,
+                    live: showFull,
+                    celebrating: state.celebrating,
+                    justMerged: state.justMerged,
+                    compact: !showFull
+                )
+                .frame(height: showFull ? 36 : 14)
+
+                if showFull {
+                    fullDetails
+                }
+            }
+            .padding(.horizontal, showFull ? 20 : 16)
+            .padding(.vertical, showFull ? 16 : 10)
+            .frame(width: 400, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: showFull ? 20 : 16, style: .continuous)
+                    .fill(Color(red: 0.07, green: 0.07, blue: 0.075))
             )
-
-            if showFull {
-                fullDetails
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
+            .overlay(
+                RoundedRectangle(cornerRadius: showFull ? 20 : 16, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+            )
         }
-        .padding(.horizontal, showFull ? 20 : 16)
-        .padding(.vertical, showFull ? 16 : 10)
-        .frame(width: showFull ? 420 : 380, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: showFull ? 20 : 16, style: .continuous)
-                .fill(Color(red: 0.07, green: 0.07, blue: 0.075))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: showFull ? 20 : 16, style: .continuous)
-                .strokeBorder(Color.white.opacity(showFull ? 0.08 : 0.06), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: showFull ? 20 : 16, style: .continuous))
-        .animation(.spring(duration: 0.38, bounce: 0.18), value: showFull)
-        .animation(.spring(duration: 0.4, bounce: 0.22), value: state.celebrating)
+        .frame(width: 400, height: 280, alignment: .topLeading)
+        .animation(.easeInOut(duration: 0.22), value: showFull)
     }
 
     private var compactRow: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(spacing: 8) {
             Text("\(state.count)")
                 .font(.system(size: 16, weight: .semibold, design: .rounded))
                 .monospacedDigit()
@@ -56,6 +55,11 @@ struct OverlayView: View {
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(Color.white.opacity(0.35))
+            if !state.openPRs.isEmpty {
+                Text("· \(state.openPRs.count) open")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.38))
+            }
             Spacer(minLength: 0)
             overflowButton
         }
@@ -63,7 +67,7 @@ struct OverlayView: View {
 
     private var fullHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center) {
+            HStack {
                 Text(state.goalMet ? "Goal hit" : "Today")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.white)
@@ -79,15 +83,13 @@ struct OverlayView: View {
             Rectangle()
                 .fill(Color.white.opacity(0.08))
                 .frame(height: 1)
-                .padding(.vertical, 2)
 
-            HStack(alignment: .center, spacing: 8) {
+            HStack(spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text("\(state.count)")
                         .font(.system(size: 32, weight: .semibold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(Color.white)
-                        .contentTransition(.numericText())
                     Text("/\(state.goal)")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .monospacedDigit()
@@ -97,7 +99,7 @@ struct OverlayView: View {
                 if let badge = deltaBadge {
                     Text(badge.text)
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(badge.up ? 0.95 : 0.7))
+                        .foregroundStyle(Color.white.opacity(0.85))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Color.white.opacity(0.08), in: Capsule())
@@ -112,47 +114,58 @@ struct OverlayView: View {
     }
 
     private var fullDetails: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if let whisper = state.whisperTitle {
-                Text(whisper)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.55))
-                    .lineLimit(1)
-            }
-
+        VStack(alignment: .leading, spacing: 12) {
             WeekStrip(days: state.weekDays, fill: Color.white, onDark: true)
 
+            if !state.openPRs.isEmpty {
+                sectionLabel("In flight")
+                ForEach(state.openPRs.prefix(4)) { pr in
+                    prRow(pr, dim: false)
+                }
+            }
+
+            sectionLabel(state.prs.isEmpty ? "Merged today" : "Merged today")
             if let error = state.lastError, state.prs.isEmpty {
                 Text(error)
                     .font(.system(size: 11))
                     .foregroundStyle(Color.white.opacity(0.5))
             } else if state.prs.isEmpty {
-                Text("No merges yet today")
+                Text("None yet — open PRs still count as in flight")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.white.opacity(0.35))
             } else {
-                ForEach(Array(state.prs.prefix(4).enumerated()), id: \.element.id) { pair in
-                    Button {
-                        state.open(pair.element)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(pair.element.title)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(Color.white.opacity(0.9))
-                                .lineLimit(1)
-                            Text(pair.element.repo)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(Color.white.opacity(0.32))
-                                .lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                ForEach(state.prs.prefix(4)) { pr in
+                    prRow(pr, dim: false)
                 }
             }
         }
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(.system(size: 9, weight: .semibold))
+            .tracking(0.6)
+            .foregroundStyle(Color.white.opacity(0.32))
+    }
+
+    private func prRow(_ pr: MergedPR, dim: Bool) -> some View {
+        Button {
+            state.open(pr)
+        } label: {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(pr.title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.9))
+                    .lineLimit(1)
+                Text(pr.repo)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color.white.opacity(0.32))
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var overflowButton: some View {
@@ -166,27 +179,17 @@ struct OverlayView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Actions")
     }
 
     private var subtitle: String {
-        if state.celebrating || state.goalMet { return "You hit today’s merge goal" }
-        if let whisper = state.whisperTitle { return whisper }
+        if state.goalMet { return "You hit today’s merge goal" }
         if let error = state.lastError { return error }
         let remaining = max(0, state.goal - state.count)
-        if remaining == 0 { return "You hit today’s merge goal" }
-        if onPace { return "On track to hit \(state.goal) today" }
+        let open = state.openPRs.count
+        if open > 0 {
+            return "\(open) open · \(remaining) more merges to goal"
+        }
         return "\(remaining) more to hit today’s goal"
-    }
-
-    private var onPace: Bool {
-        let calendar = Calendar.current
-        let now = Date()
-        let start = calendar.startOfDay(for: now)
-        let elapsed = now.timeIntervalSince(start)
-        let day: Double = 16 * 3600
-        let expected = ProgressMath.ratio(count: Int((elapsed / day) * Double(state.goal)), goal: state.goal)
-        return state.ratio + 0.02 >= min(1, expected)
     }
 
     private var deltaBadge: (text: String, up: Bool)? {
@@ -219,11 +222,11 @@ struct PulseBar: View {
                 ForEach(0..<segments, id: \.self) { index in
                     RoundedRectangle(cornerRadius: compact ? 2 : 3, style: .continuous)
                         .fill(color(for: index, time: time))
-                        .frame(width: compact ? 7 : 10, height: height(for: index, time: time))
-                        .shadow(color: glow(for: index), radius: hoverIndex == index ? 7 : 0)
+                        .frame(width: compact ? 7 : 10, height: compact ? 10 : 26)
+                        .scaleEffect(y: scale(for: index, time: time), anchor: .bottom)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         }
         .onContinuousHover { phase in
             guard live else {
@@ -243,19 +246,13 @@ struct PulseBar: View {
             if live { playReveal() }
         }
         .onChange(of: live) { _, on in
-            if on {
-                playReveal()
-            } else {
+            if on { playReveal() } else {
                 revealTask?.cancel()
                 revealed = targetFilled
             }
         }
         .onChange(of: targetFilled) { _, _ in
-            if live {
-                playReveal()
-            } else {
-                revealed = targetFilled
-            }
+            if !live { revealed = targetFilled }
         }
     }
 
@@ -267,13 +264,11 @@ struct PulseBar: View {
         revealTask?.cancel()
         revealed = 0
         revealTask = Task { @MainActor in
-            let total = max(targetFilled, 1)
+            let total = max(targetFilled, 0)
             for index in 0...total {
                 if Task.isCancelled { return }
-                withAnimation(.spring(duration: 0.28, bounce: 0.32)) {
-                    revealed = index
-                }
-                try? await Task.sleep(nanoseconds: 24_000_000)
+                revealed = index
+                try? await Task.sleep(nanoseconds: 22_000_000)
             }
         }
     }
@@ -282,14 +277,12 @@ struct PulseBar: View {
         index < revealed
     }
 
-    private func height(for index: Int, time: TimeInterval) -> CGFloat {
-        let base: CGFloat = compact ? 11 : 28
-        if hoverIndex == index { return base + 6 }
-        guard live, isFilled(index) else { return base }
+    private func scale(for index: Int, time: TimeInterval) -> CGFloat {
+        if hoverIndex == index { return 1.18 }
+        guard live, isFilled(index) else { return 1 }
         let dist = Double(max(0, revealed - 1 - index))
         let wave = sin(time * 4.2 - dist * 0.55)
-        let extra = CGFloat(max(0, wave) * (justMerged || celebrating ? 7 : 5))
-        return base + extra
+        return 1 + CGFloat(max(0, wave) * 0.16)
     }
 
     private func color(for index: Int, time: TimeInterval) -> Color {
@@ -303,16 +296,11 @@ struct PulseBar: View {
             if live {
                 let dist = Double(max(0, revealed - 1 - index))
                 let wave = (sin(time * 4.2 - dist * 0.55) + 1) / 2
-                let dim = 0.72 + 0.28 * wave
-                return Color.white.opacity(dim)
+                return Color.white.opacity(0.72 + 0.28 * wave)
             }
             return Color.white
         }
         return Color.white.opacity(0.12)
-    }
-
-    private func glow(for index: Int) -> Color {
-        hoverIndex == index ? Color(red: 0.31, green: 0.58, blue: 1.0).opacity(0.9) : .clear
     }
 }
 
@@ -322,19 +310,22 @@ struct WeekStrip: View {
     var onDark: Bool = true
 
     var body: some View {
-        HStack(spacing: 5) {
-            ForEach(days) { day in
-                VStack(spacing: 3) {
+        Grid(horizontalSpacing: 0, verticalSpacing: 5) {
+            GridRow {
+                ForEach(days) { day in
                     Capsule()
                         .fill(tickColor(day))
-                        .frame(width: day.isToday ? 16 : 12, height: 5)
-                        .animation(.spring(duration: 0.35, bounce: 0.2), value: day.count)
-                    Text(day.label)
-                        .font(.system(size: 8, weight: day.isToday ? .semibold : .medium, design: .rounded))
-                        .foregroundStyle(labelColor(day))
+                        .frame(width: 14, height: 4)
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
-                .help("\(day.count) merged")
+            }
+            GridRow {
+                ForEach(days) { day in
+                    Text(day.label)
+                        .font(.system(size: 9, weight: day.isToday ? .semibold : .medium, design: .rounded))
+                        .foregroundStyle(labelColor(day))
+                        .frame(maxWidth: .infinity)
+                }
             }
         }
     }
@@ -342,7 +333,7 @@ struct WeekStrip: View {
     private func tickColor(_ day: WeekDay) -> Color {
         if day.count == 0 {
             return onDark
-                ? Color.white.opacity(day.isToday ? 0.22 : 0.12)
+                ? Color.white.opacity(day.isToday ? 0.28 : 0.12)
                 : Color.primary.opacity(day.isToday ? 0.28 : 0.12)
         }
         if day.count >= 8 { return fill }
@@ -351,7 +342,7 @@ struct WeekStrip: View {
 
     private func labelColor(_ day: WeekDay) -> Color {
         if onDark {
-            return Color.white.opacity(day.isToday ? 0.7 : 0.32)
+            return Color.white.opacity(day.isToday ? 0.78 : 0.38)
         }
         return Color.secondary.opacity(day.isToday ? 1 : 0.7)
     }

@@ -9,6 +9,7 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(goal, forKey: Keys.goal) }
     }
     @Published private(set) var prs: [MergedPR] = []
+    @Published private(set) var openPRs: [MergedPR] = []
     @Published private(set) var weekDays: [WeekDay] = WeekMath.days(prs: [])
     @Published private(set) var username: String
     @Published private(set) var lastUpdated: Date?
@@ -85,7 +86,7 @@ final class AppState: ObservableObject {
     func start() {
         Task { await refresh() }
         pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 180, repeats: true) { [weak self] _ in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 45, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.refresh() }
         }
         observeWorkspace()
@@ -108,12 +109,16 @@ final class AppState: ObservableObject {
                 UserDefaults.standard.set(login, forKey: Keys.username)
             }
             let week = DayWindow.lastSevenDays()
-            let weekPRs = try await client.mergedPRs(author: username, window: week)
+            async let weekPRsTask = client.mergedPRs(author: username, window: week)
+            async let openTask = client.openPRs(author: username)
+            let weekPRs = try await weekPRsTask
+            let open = try await openTask
             let today = DayWindow.local()
             let next = weekPRs.filter { today.contains($0.mergedAt) }
             let grew = next.count > prs.count && lastUpdated != nil
             let crossedGoal = lastUpdated != nil && prs.count < goal && next.count >= goal
             prs = next
+            openPRs = Array(open.prefix(8))
             weekDays = WeekMath.days(prs: weekPRs)
             lastError = nil
             lastUpdated = Date()

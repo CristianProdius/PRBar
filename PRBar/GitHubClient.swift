@@ -56,6 +56,7 @@ struct GitHubClient: Sendable {
                     title
                     url
                     mergedAt
+                    createdAt
                     repository { nameWithOwner }
                   }
                 }
@@ -93,6 +94,49 @@ struct GitHubClient: Sendable {
             cursor = search.pageInfo.hasNextPage ? search.pageInfo.endCursor : nil
         } while cursor != nil
 
+        return collected.sorted { $0.mergedAt > $1.mergedAt }
+    }
+
+    func openPRs(author: String) async throws -> [MergedPR] {
+        let queryString = "is:pr is:open author:\(author)"
+        let document = """
+        query {
+          search(query: "\(queryString)", type: ISSUE, first: 30) {
+            pageInfo { hasNextPage endCursor }
+            nodes {
+              ... on PullRequest {
+                title
+                url
+                mergedAt
+                createdAt
+                repository { nameWithOwner }
+              }
+            }
+          }
+        }
+        """
+        let data = try await graphql(document)
+        let parsed = try JSONDecoder().decode(SearchResponse.self, from: data)
+        if let message = parsed.errors?.first?.message {
+            throw GitHubClientError.decoding(message)
+        }
+        var collected: [MergedPR] = []
+        for node in parsed.data?.search.nodes ?? [] {
+            guard
+                let title = node.title,
+                let urlString = node.url,
+                let url = URL(string: urlString)
+            else { continue }
+            let created = node.createdAt.flatMap(DateDecoding.iso8601) ?? Date.distantPast
+            collected.append(
+                MergedPR(
+                    title: title,
+                    url: url,
+                    repo: node.repository?.nameWithOwner ?? "unknown",
+                    mergedAt: created
+                )
+            )
+        }
         return collected.sorted { $0.mergedAt > $1.mergedAt }
     }
 
@@ -170,6 +214,7 @@ private struct SearchResponse: Decodable {
         let title: String?
         let url: String?
         let mergedAt: String?
+        let createdAt: String?
         let repository: Repository?
     }
     struct Repository: Decodable { let nameWithOwner: String }
