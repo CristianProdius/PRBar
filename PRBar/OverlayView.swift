@@ -4,30 +4,45 @@ struct OverlayView: View {
     @ObservedObject var state: AppState
 
     private var showWide: Bool {
-        state.isHovered || state.isExpanded || state.justMerged
+        state.isHovered || state.isExpanded || state.justMerged || state.celebrating
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 6) {
             islandBar
+            if let whisper = state.whisperTitle, !state.isExpanded {
+                Text(whisper)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.82))
+                    .lineLimit(1)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            WeekStrip(days: state.weekDays, fill: fillColor)
             if state.isExpanded {
                 expandedList
             }
         }
-        .padding(.horizontal, showWide ? 14 : 11)
-        .padding(.vertical, state.isExpanded ? 10 : 7)
-        .frame(width: state.isExpanded ? 300 : (showWide ? 268 : 148), alignment: .leading)
-        .background { IslandBackground(expanded: state.isExpanded) }
+        .padding(.horizontal, 12)
+        .padding(.vertical, state.isExpanded ? 10 : 8)
+        .frame(width: state.isExpanded ? 300 : (showWide ? 268 : 200), alignment: .leading)
+        .background { IslandBackground(expanded: state.isExpanded, celebrating: state.celebrating) }
         .clipShape(islandShape)
-        .overlay(islandShape.strokeBorder(Color.white.opacity(0.16), lineWidth: 0.8))
-        .scaleEffect(state.justMerged ? 1.045 : 1)
-        .animation(.spring(duration: 0.38, bounce: 0.32), value: state.justMerged)
+        .overlay(
+            islandShape.strokeBorder(
+                state.celebrating ? Color(red: 0.98, green: 0.82, blue: 0.32).opacity(0.95) : Color.white.opacity(0.18),
+                lineWidth: state.celebrating ? 1.4 : 0.8
+            )
+        )
+        .scaleEffect(state.celebrating ? 1.06 : (state.justMerged ? 1.03 : 1))
+        .animation(.spring(duration: 0.42, bounce: 0.34), value: state.justMerged)
+        .animation(.spring(duration: 0.5, bounce: 0.28), value: state.celebrating)
         .animation(.snappy(duration: 0.22), value: showWide)
         .animation(.snappy(duration: 0.22), value: state.isExpanded)
+        .animation(.snappy(duration: 0.22), value: state.whisperTitle)
     }
 
     private var islandShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: state.isExpanded ? 18 : 20, style: .continuous)
+        RoundedRectangle(cornerRadius: state.isExpanded ? 18 : 18, style: .continuous)
     }
 
     private var islandBar: some View {
@@ -41,13 +56,10 @@ struct OverlayView: View {
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(fillColor)
-                if showWide {
-                    Text("/\(state.goal)")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(Color.white.opacity(0.55))
-                        .transition(.opacity.combined(with: .move(edge: .leading)))
-                }
+                Text("/\(state.goal)")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.white.opacity(0.55))
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -61,7 +73,12 @@ struct OverlayView: View {
                 }
                 .frame(height: 5)
 
-                if state.justMerged {
+                if state.celebrating {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color(red: 0.98, green: 0.82, blue: 0.32))
+                        .transition(.scale.combined(with: .opacity))
+                } else if state.justMerged {
                     Text("+1")
                         .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundStyle(fillColor)
@@ -87,14 +104,7 @@ struct OverlayView: View {
             Rectangle()
                 .fill(Color.white.opacity(0.08))
                 .frame(height: 1)
-                .padding(.top, 8)
-
-            if let latest = state.prs.first, state.justMerged || !state.prs.isEmpty {
-                Text(latest.title)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color.white.opacity(0.88))
-                    .lineLimit(1)
-            }
+                .padding(.top, 4)
 
             if let error = state.lastError, state.prs.isEmpty {
                 Text(error)
@@ -135,7 +145,7 @@ struct OverlayView: View {
     }
 
     private var fillColor: Color {
-        if state.goalMet { return Color(red: 0.98, green: 0.82, blue: 0.32) }
+        if state.goalMet || state.celebrating { return Color(red: 0.98, green: 0.82, blue: 0.32) }
         if state.ratio < 0.5 { return Color(red: 1.0, green: 0.68, blue: 0.28) }
         return Color(red: 0.46, green: 0.90, blue: 0.52)
     }
@@ -149,8 +159,49 @@ struct OverlayView: View {
     }
 }
 
+struct WeekStrip: View {
+    let days: [WeekDay]
+    let fill: Color
+    var onDark: Bool = true
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(days) { day in
+                VStack(spacing: 2) {
+                    Capsule()
+                        .fill(tickColor(day))
+                        .frame(width: day.isToday ? 14 : 11, height: 4)
+                    Text(day.label)
+                        .font(.system(size: 7, weight: day.isToday ? .semibold : .medium, design: .rounded))
+                        .foregroundStyle(labelColor(day))
+                }
+                .frame(maxWidth: .infinity)
+                .help("\(day.count) merged")
+            }
+        }
+    }
+
+    private func tickColor(_ day: WeekDay) -> Color {
+        if day.count == 0 {
+            return onDark
+                ? Color.white.opacity(day.isToday ? 0.22 : 0.12)
+                : Color.primary.opacity(day.isToday ? 0.28 : 0.12)
+        }
+        if day.count >= 8 { return fill }
+        return fill.opacity(0.45 + min(0.55, Double(day.count) / 12))
+    }
+
+    private func labelColor(_ day: WeekDay) -> Color {
+        if onDark {
+            return Color.white.opacity(day.isToday ? 0.7 : 0.32)
+        }
+        return Color.secondary.opacity(day.isToday ? 1 : 0.7)
+    }
+}
+
 private struct IslandBackground: NSViewRepresentable {
     var expanded: Bool
+    var celebrating: Bool
 
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -160,12 +211,13 @@ private struct IslandBackground: NSViewRepresentable {
         view.wantsLayer = true
         view.layer?.masksToBounds = true
         view.layer?.cornerCurve = .continuous
-        view.layer?.backgroundColor = NSColor.clear.cgColor
+        view.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.22).cgColor
         return view
     }
 
     func updateNSView(_ view: NSVisualEffectView, context: Context) {
-        view.layer?.cornerRadius = expanded ? 18 : 20
+        view.layer?.cornerRadius = expanded ? 18 : 18
         view.layer?.masksToBounds = true
+        view.layer?.backgroundColor = NSColor.black.withAlphaComponent(celebrating ? 0.12 : 0.22).cgColor
     }
 }

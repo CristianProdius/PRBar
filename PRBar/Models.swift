@@ -8,6 +8,13 @@ struct DayWindow: Equatable, Sendable {
         date >= start && date < end
     }
 
+    static func lastSevenDays(now: Date = Date(), calendar: Calendar = .current) -> DayWindow {
+        let today = calendar.startOfDay(for: now)
+        let start = calendar.date(byAdding: .day, value: -6, to: today) ?? today.addingTimeInterval(-6 * 86_400)
+        let end = calendar.date(byAdding: .day, value: 1, to: today) ?? today.addingTimeInterval(86_400)
+        return DayWindow(start: start, end: end)
+    }
+
     static func local(now: Date = Date(), calendar: Calendar = .current) -> DayWindow {
         let start = calendar.startOfDay(for: now)
         let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
@@ -74,6 +81,35 @@ enum StreakMath {
             return Snapshot(count: 0, lastActiveDay: last)
         }
         return current
+    }
+}
+
+struct WeekDay: Equatable, Identifiable, Sendable {
+    let start: Date
+    let count: Int
+    let isToday: Bool
+    let label: String
+
+    var id: Date { start }
+}
+
+enum WeekMath {
+    static let weekdayLabels = ["S", "M", "T", "W", "T", "F", "S"]
+
+    static func days(
+        prs: [MergedPR],
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [WeekDay] {
+        let today = calendar.startOfDay(for: now)
+        return (0..<7).map { offset in
+            let start = calendar.date(byAdding: .day, value: offset - 6, to: today) ?? today
+            let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
+            let count = prs.filter { $0.mergedAt >= start && $0.mergedAt < end }.count
+            let weekday = calendar.component(.weekday, from: start)
+            let label = weekdayLabels[(weekday - 1 + 7) % 7]
+            return WeekDay(start: start, count: count, isToday: start == today, label: label)
+        }
     }
 }
 

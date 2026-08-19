@@ -25,6 +25,9 @@ struct MenuView: View {
                 }
             }
 
+            WeekStrip(days: state.weekDays, fill: Color.accentColor, onDark: false)
+                .padding(.vertical, 2)
+
             if let latest = state.prs.first {
                 Text(latest.title)
                     .font(.caption)
@@ -57,10 +60,16 @@ struct MenuView: View {
             }
 
             Toggle("On-screen bar", isOn: $state.hudVisible)
+            Toggle("Hide on fullscreen spaces", isOn: $state.hideInFullscreen)
+            Toggle("Sound on merge", isOn: $state.soundEnabled)
             Toggle("Launch at login", isOn: Binding(
                 get: { state.launchesAtLogin },
                 set: { _ in state.toggleLaunchAtLogin() }
             ))
+
+            Button("Bring bar here") {
+                state.resetBarPosition()
+            }
 
             Divider()
 
@@ -72,6 +81,6 @@ struct MenuView: View {
             }
         }
         .padding(12)
-        .frame(width: 260)
+        .frame(width: 268)
     }
 }

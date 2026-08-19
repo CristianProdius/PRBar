@@ -30,7 +30,7 @@ final class OverlayPanel: NSPanel {
 
     init(state: AppState) {
         self.state = state
-        let rect = NSRect(x: 0, y: 0, width: 168, height: 36)
+        let rect = NSRect(x: 0, y: 0, width: 220, height: 58)
         super.init(
             contentRect: rect,
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
@@ -46,7 +46,7 @@ final class OverlayPanel: NSPanel {
         hasShadow = false
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isMovableByWindowBackground = true
         hidesOnDeactivate = false
         animationBehavior = .none
@@ -72,8 +72,8 @@ final class OverlayPanel: NSPanel {
         hostingView.invalidateIntrinsicContentSize()
         hostingView.layoutSubtreeIfNeeded()
         var size = hostingView.fittingSize
-        size.width = max(120, ceil(size.width) + 2)
-        size.height = max(34, ceil(size.height) + 2)
+        size.width = max(188, ceil(size.width) + 2)
+        size.height = max(52, ceil(size.height) + 2)
         var next = frame
         let top = next.maxY
         next.size = size
@@ -84,16 +84,18 @@ final class OverlayPanel: NSPanel {
     }
 
     func restorePosition() {
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
-        let visible = screen.visibleFrame
-        if let saved = state.hudOrigin, visible.insetBy(dx: 40, dy: 20).contains(saved) {
+        if let saved = state.hudOrigin, isOnAnyScreen(saved) {
             setFrameOrigin(saved)
             return
         }
-        let size = frame.size
-        let x = visible.midX - size.width / 2
-        let y = visible.maxY - size.height - 10
-        setFrameOrigin(NSPoint(x: x, y: y))
+        centerOnMouseScreen()
+    }
+
+    func resetToMouseScreen() {
+        state.hudOrigin = nil
+        centerOnMouseScreen()
+        fitContent()
+        orderFrontRegardless()
     }
 
     func applyVisibility(_ visible: Bool) {
@@ -108,6 +110,27 @@ final class OverlayPanel: NSPanel {
 
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+
+    private func centerOnMouseScreen() {
+        let screen = Self.screenUnderMouse()
+        let visible = screen.visibleFrame
+        let size = frame.size
+        let x = visible.midX - size.width / 2
+        let y = visible.maxY - size.height - 10
+        setFrameOrigin(NSPoint(x: x, y: y))
+    }
+
+    private func isOnAnyScreen(_ origin: CGPoint) -> Bool {
+        let probe = NSRect(origin: origin, size: NSSize(width: 80, height: 28))
+        return NSScreen.screens.contains { $0.visibleFrame.intersects(probe) }
+    }
+
+    static func screenUnderMouse() -> NSScreen {
+        let point = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(point) }
+            ?? NSScreen.main
+            ?? NSScreen.screens[0]
+    }
 
     private func refreshTracking() {
         guard let hostingView else { return }
@@ -143,6 +166,8 @@ final class OverlayPanel: NSPanel {
 
     override func mouseUp(with event: NSEvent) {
         super.mouseUp(with: event)
-        state.hudOrigin = frame.origin
+        if isOnAnyScreen(frame.origin) {
+            state.hudOrigin = frame.origin
+        }
     }
 }

@@ -116,6 +116,43 @@ final class StreakMathTests: XCTestCase {
     }
 }
 
+final class WeekMathTests: XCTestCase {
+    func testBucketsLastSevenDaysWithTodayOnTheRight() {
+        let calendar = utc
+        let today = date(2026, 8, 19, 15)
+        let prs = [
+            MergedPR(title: "a", url: URL(string: "https://e/1")!, repo: "o/a", mergedAt: date(2026, 8, 19, 8)),
+            MergedPR(title: "b", url: URL(string: "https://e/2")!, repo: "o/a", mergedAt: date(2026, 8, 19, 9)),
+            MergedPR(title: "c", url: URL(string: "https://e/3")!, repo: "o/a", mergedAt: date(2026, 8, 17, 12)),
+            MergedPR(title: "old", url: URL(string: "https://e/4")!, repo: "o/a", mergedAt: date(2026, 8, 10, 12))
+        ]
+        let days = WeekMath.days(prs: prs, now: today, calendar: calendar)
+        XCTAssertEqual(days.count, 7)
+        XCTAssertEqual(days.first?.start, calendar.startOfDay(for: date(2026, 8, 13)))
+        XCTAssertTrue(days.last?.isToday == true)
+        XCTAssertEqual(days.last?.count, 2)
+        XCTAssertEqual(days[4].count, 1) // Aug 17
+        XCTAssertEqual(days.map(\.count).reduce(0, +), 3)
+    }
+
+    func testLastSevenDaysWindow() {
+        let window = DayWindow.lastSevenDays(now: date(2026, 8, 19, 12), calendar: utc)
+        XCTAssertEqual(utc.startOfDay(for: window.start), utc.startOfDay(for: date(2026, 8, 13)))
+        XCTAssertTrue(window.contains(date(2026, 8, 13, 0)))
+        XCTAssertFalse(window.contains(date(2026, 8, 20, 0)))
+    }
+
+    private var utc: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }
+
+    private func date(_ y: Int, _ m: Int, _ d: Int, _ h: Int = 12) -> Date {
+        utc.date(from: DateComponents(year: y, month: m, day: d, hour: h))!
+    }
+}
+
 final class TodayFilterTests: XCTestCase {
     func testOnlyTodayMergesSurvive() {
         var calendar = Calendar(identifier: .gregorian)

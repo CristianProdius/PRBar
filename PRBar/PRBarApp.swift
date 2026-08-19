@@ -38,19 +38,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         let panel = OverlayPanel(state: state)
         overlay = panel
-        panel.applyVisibility(state.hudVisible)
+        panel.applyVisibility(state.shouldShowHUD)
 
-        state.$hudVisible
+        Publishers.CombineLatest3(
+            state.$hudVisible,
+            state.$hideInFullscreen,
+            state.$isFullscreenSpace
+        )
+        .map { visible, hide, fullscreen in visible && !(hide && fullscreen) }
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] visible in
+            self?.overlay?.applyVisibility(visible)
+        }
+        .store(in: &observers)
+
+        state.$positionToken
+            .dropFirst()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] visible in
-                self?.overlay?.applyVisibility(visible)
+            .sink { [weak self] _ in
+                self?.overlay?.resetToMouseScreen()
             }
             .store(in: &observers)
 
-        Publishers.Merge3(
+        Publishers.Merge4(
             state.$isExpanded.map { _ in () },
             state.$isHovered.map { _ in () },
-            state.$justMerged.map { _ in () }
+            state.$justMerged.map { _ in () },
+            state.$celebrating.map { _ in () }
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _ in
