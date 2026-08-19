@@ -113,6 +113,20 @@ enum WeekMath {
     }
 }
 
+enum RivalMath {
+    static func cleaned(_ raw: String) -> String {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+    }
+
+    static func headline(you: Int, them: Int, rival: String) -> String {
+        if rival.isEmpty { return "Add a rival to race today" }
+        if you > them { return "You’re up \(you - them) on @\(rival)" }
+        if them > you { return "@\(rival) is up \(them - you). Hunt." }
+        return "Dead heat with @\(rival)"
+    }
+}
+
 enum DateDecoding {
     static func iso8601(_ string: String) -> Date? {
         let fractional = ISO8601DateFormatter()

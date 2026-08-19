@@ -13,6 +13,11 @@ struct MenuView: View {
                     Text("\(state.count)/\(state.goal)")
                         .font(.system(size: 22, weight: .semibold, design: .rounded))
                         .monospacedDigit()
+                    if !state.rivalUsername.isEmpty {
+                        Text("you \(state.count)  vs  \(state.rivalCount) @\(state.rivalUsername)")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 if state.streak > 0 {
@@ -56,6 +61,18 @@ struct MenuView: View {
             }
 
             Divider()
+
+            HStack {
+                Text("Rival")
+                TextField("github username", text: $state.rivalUsername)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { state.setRival(state.rivalUsername) }
+            }
+            if !state.rivalUsername.isEmpty {
+                Text(state.raceHeadline)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Stepper(value: Binding(
                 get: { state.goal },

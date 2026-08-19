@@ -10,8 +10,19 @@ final class AppState: ObservableObject {
     }
     @Published private(set) var prs: [MergedPR] = []
     @Published private(set) var openPRs: [MergedPR] = []
+    @Published private(set) var rivalPRs: [MergedPR] = []
     @Published private(set) var weekDays: [WeekDay] = WeekMath.days(prs: [])
     @Published private(set) var username: String
+    @Published var rivalUsername: String {
+        didSet {
+            let cleaned = RivalMath.cleaned(rivalUsername)
+            if cleaned != rivalUsername {
+                rivalUsername = cleaned
+                return
+            }
+            UserDefaults.standard.set(cleaned, forKey: Keys.rival)
+        }
+    }
     @Published private(set) var lastUpdated: Date?
     @Published private(set) var lastError: String?
     @Published private(set) var isLoading = false
@@ -48,8 +59,11 @@ final class AppState: ObservableObject {
     }
 
     var count: Int { prs.count }
+    var rivalCount: Int { rivalPRs.count }
     var ratio: Double { ProgressMath.ratio(count: count, goal: goal) }
+    var rivalRatio: Double { ProgressMath.ratio(count: rivalCount, goal: goal) }
     var goalMet: Bool { count >= goal }
+    var raceHeadline: String { RivalMath.headline(you: count, them: rivalCount, rival: rivalUsername) }
     var shouldShowHUD: Bool {
         hudVisible && !(hideInFullscreen && isFullscreenSpace)
     }
@@ -66,6 +80,7 @@ final class AppState: ObservableObject {
         let storedGoal = UserDefaults.standard.object(forKey: Keys.goal) as? Int ?? 50
         self.goal = ProgressMath.clampGoal(storedGoal)
         self.username = UserDefaults.standard.string(forKey: Keys.username) ?? ""
+        self.rivalUsername = RivalMath.cleaned(UserDefaults.standard.string(forKey: Keys.rival) ?? "")
         self.hudVisible = UserDefaults.standard.object(forKey: Keys.hudVisible) as? Bool ?? true
         self.hideInFullscreen = UserDefaults.standard.bool(forKey: Keys.hideInFullscreen)
         self.soundEnabled = UserDefaults.standard.bool(forKey: Keys.soundEnabled)
@@ -115,10 +130,17 @@ final class AppState: ObservableObject {
             let open = try await openTask
             let today = DayWindow.local()
             let next = weekPRs.filter { today.contains($0.mergedAt) }
+            var rivalToday: [MergedPR] = []
+            let rival = RivalMath.cleaned(rivalUsername)
+            if !rival.isEmpty {
+                let rivalWeek = try await client.mergedPRs(author: rival, window: week)
+                rivalToday = rivalWeek.filter { today.contains($0.mergedAt) }
+            }
             let grew = next.count > prs.count && lastUpdated != nil
             let crossedGoal = lastUpdated != nil && prs.count < goal && next.count >= goal
             prs = next
             openPRs = Array(open.prefix(8))
+            rivalPRs = rivalToday
             weekDays = WeekMath.days(prs: weekPRs)
             lastError = nil
             lastUpdated = Date()
@@ -143,8 +165,13 @@ final class AppState: ObservableObject {
     }
 
     func requestOverflowMenu() {
-        menuOpen = true
-        overflowTick += 1
+        isExpanded.toggle()
+        menuOpen = false
+    }
+
+    func setRival(_ raw: String) {
+        rivalUsername = RivalMath.cleaned(raw)
+        Task { await refresh() }
     }
 
     func toggleLaunchAtLogin() {
@@ -243,5 +270,6 @@ final class AppState: ObservableObject {
         static let lastActiveDay = "prbar.lastActiveDay"
         static let hudX = "prbar.hudX"
         static let hudY = "prbar.hudY"
+        static let rival = "prbar.rival"
     }
 }

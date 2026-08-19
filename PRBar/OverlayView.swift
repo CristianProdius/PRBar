@@ -4,7 +4,7 @@ struct OverlayView: View {
     @ObservedObject var state: AppState
 
     private var showFull: Bool {
-        state.isHovered || state.menuOpen
+        state.isExpanded
     }
 
     var body: some View {
@@ -41,28 +41,52 @@ struct OverlayView: View {
                     .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
             )
         }
-        .frame(width: 400, height: 280, alignment: .topLeading)
+        .frame(width: 400, height: 340, alignment: .topLeading)
         .animation(.easeInOut(duration: 0.22), value: showFull)
     }
 
     private var compactRow: some View {
-        HStack(spacing: 8) {
-            Text("\(state.count)")
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Color.white)
-            Text("/\(state.goal)")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .monospacedDigit()
-                .foregroundStyle(Color.white.opacity(0.35))
-            if !state.openPRs.isEmpty {
-                Text("· \(state.openPRs.count) open")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.38))
-            }
+        HStack(spacing: 10) {
+            scoreChip(name: youLabel, score: state.count, leading: true)
+            Text("vs")
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.28))
+            scoreChip(name: rivalLabel, score: state.rivalUsername.isEmpty ? nil : state.rivalCount, leading: false)
             Spacer(minLength: 0)
             overflowButton
         }
+    }
+
+    private func scoreChip(name: String, score: Int?, leading: Bool) -> some View {
+        HStack(spacing: 6) {
+            if leading {
+                Text(score.map(String.init) ?? "–")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.white)
+                Text(name)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.4))
+                    .lineLimit(1)
+            } else {
+                Text(name)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.4))
+                    .lineLimit(1)
+                Text(score.map(String.init) ?? "–")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.white)
+            }
+        }
+    }
+
+    private var youLabel: String {
+        state.username.isEmpty ? "you" : state.username
+    }
+
+    private var rivalLabel: String {
+        state.rivalUsername.isEmpty ? "rival" : state.rivalUsername
     }
 
     private var fullHeader: some View {
@@ -75,7 +99,7 @@ struct OverlayView: View {
                 overflowButton
             }
 
-            Text(subtitle)
+            Text(state.raceHeadline)
                 .font(.system(size: 12))
                 .foregroundStyle(Color.white.opacity(0.4))
                 .lineLimit(1)
@@ -115,7 +139,11 @@ struct OverlayView: View {
 
     private var fullDetails: some View {
         VStack(alignment: .leading, spacing: 12) {
+            raceTrack
+
             WeekStrip(days: state.weekDays, fill: Color.white, onDark: true)
+
+            rivalField
 
             if !state.openPRs.isEmpty {
                 sectionLabel("In flight")
@@ -139,6 +167,69 @@ struct OverlayView: View {
                 }
             }
         }
+    }
+
+    private var raceTrack: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(youLabel)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                Spacer()
+                Text("\(state.count)")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.white.opacity(0.7))
+            }
+            PulseBar(
+                ratio: state.ratio,
+                live: false,
+                celebrating: state.celebrating && state.count >= state.rivalCount,
+                justMerged: false,
+                compact: true
+            )
+            .frame(height: 10)
+
+            HStack {
+                Text(rivalLabel)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                Spacer()
+                Text(state.rivalUsername.isEmpty ? "–" : "\(state.rivalCount)")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.white.opacity(0.7))
+            }
+            PulseBar(
+                ratio: state.rivalUsername.isEmpty ? 0 : state.rivalRatio,
+                live: false,
+                celebrating: state.rivalCount > state.count,
+                justMerged: false,
+                compact: true
+            )
+            .frame(height: 10)
+        }
+    }
+
+    private var rivalField: some View {
+        HStack(spacing: 8) {
+            Text("@")
+                .foregroundStyle(Color.white.opacity(0.3))
+            TextField("friend’s GitHub username", text: $state.rivalUsername)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(Color.white.opacity(0.85))
+                .onSubmit { state.setRival(state.rivalUsername) }
+            Button("Race") {
+                state.setRival(state.rivalUsername)
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(Color.white.opacity(0.7))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     private func sectionLabel(_ text: String) -> some View {

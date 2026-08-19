@@ -153,6 +153,19 @@ final class WeekMathTests: XCTestCase {
     }
 }
 
+final class RivalMathTests: XCTestCase {
+    func testCleansAtAndSpaces() {
+        XCTAssertEqual(RivalMath.cleaned("  @IonPop  "), "IonPop")
+    }
+
+    func testHeadlineStates() {
+        XCTAssertEqual(RivalMath.headline(you: 4, them: 2, rival: "ion"), "You’re up 2 on @ion")
+        XCTAssertEqual(RivalMath.headline(you: 1, them: 5, rival: "ion"), "@ion is up 4. Hunt.")
+        XCTAssertEqual(RivalMath.headline(you: 3, them: 3, rival: "ion"), "Dead heat with @ion")
+        XCTAssertEqual(RivalMath.headline(you: 0, them: 0, rival: ""), "Add a rival to race today")
+    }
+}
+
 final class TodayFilterTests: XCTestCase {
     func testOnlyTodayMergesSurvive() {
         var calendar = Calendar(identifier: .gregorian)

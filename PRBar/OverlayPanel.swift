@@ -24,7 +24,7 @@ final class ClearHostingView<Content: View>: NSHostingView<Content> {
 }
 
 final class OverlayPanel: NSPanel {
-    static let panelSize = NSSize(width: 400, height: 280)
+    static let panelSize = NSSize(width: 400, height: 340)
 
     private var hostingView: ClearHostingView<OverlayView>?
     private let state: AppState
@@ -167,7 +167,7 @@ final class OverlayPanel: NSPanel {
     }
 
     private func cardRect() -> NSRect {
-        let height: CGFloat = (state.isHovered || state.menuOpen) ? 268 : 52
+        let height: CGFloat = state.isExpanded ? 328 : 56
         return NSRect(x: 0, y: Self.panelSize.height - height, width: Self.panelSize.width, height: height)
     }
 
@@ -190,7 +190,6 @@ final class OverlayPanel: NSPanel {
             let point = self.mousePointInHostingView()
             if self.cardRect().insetBy(dx: -4, dy: -4).contains(point) { return }
             self.state.isHovered = false
-            self.state.isExpanded = false
         }
     }
 
