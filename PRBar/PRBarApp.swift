@@ -115,16 +115,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showConfigWindow(onboardingWindow)
             return
         }
-        let window = makeConfigWindow(
-            title: "Welcome to PRBar",
-            size: NSSize(width: 460, height: 700),
-            transparentTitlebar: true
-        )
+        let window = makeConfigWindow(title: "PRBar", size: ConfigWindowStyle.onboardingSize)
         window.contentView = NSHostingView(
             rootView: OnboardingView(state: state) { [weak self] in
                 self?.finishOnboarding()
             }
         )
+        ConfigWindowStyle.apply(window)
         onboardingWindow = window
         showConfigWindow(window)
     }
@@ -134,13 +131,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showConfigWindow(settingsWindow)
             return
         }
-        let window = makeConfigWindow(
-            title: "PRBar Settings",
-            size: NSSize(width: 440, height: 620),
-            transparentTitlebar: false
-        )
-        window.styleMask.insert(.resizable)
+        let window = makeConfigWindow(title: "PRBar", size: ConfigWindowStyle.settingsSize)
         window.contentView = NSHostingView(rootView: SettingsView(state: state))
+        ConfigWindowStyle.apply(window)
         settingsWindow = window
         showConfigWindow(window)
     }
@@ -158,23 +151,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    private func makeConfigWindow(title: String, size: NSSize, transparentTitlebar: Bool) -> NSWindow {
-        var style: NSWindow.StyleMask = [.titled, .closable]
-        if transparentTitlebar {
-            style.insert(.fullSizeContentView)
-        }
+    private func makeConfigWindow(title: String, size: NSSize) -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: size),
-            styleMask: style,
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = title
-        window.titleVisibility = transparentTitlebar ? .hidden : .visible
-        window.titlebarAppearsTransparent = transparentTitlebar
         window.isReleasedWhenClosed = false
-        window.isMovableByWindowBackground = true
         window.level = .floating
+        ConfigWindowStyle.apply(window)
         return window
     }
 
