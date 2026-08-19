@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PRBar demo</title>
+  <style>
+    :root { --card: #121214; --line: rgba(255,255,255,.08); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, sans-serif;
+      background: #c8c8ca;
+      overflow: hidden;
+    }
+    .desk {
+      position: relative;
+      width: 1280px;
+      height: 720px;
+      background:
+        radial-gradient(1200px 500px at 50% -10%, #d8d8da, #b7b7ba);
+    }
+    .menubar {
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 12px;
+      color: #1c1c1e;
+      background: rgba(246,246,246,.72);
+      backdrop-filter: blur(16px);
+    }
+    body.fullshot .mini { display: none; }
+    body.fullshot .full { opacity: 1; max-height: none; animation: none; }
+    body.fullshot .hud { padding: 12px 14px; border-radius: 16px; animation: none; }
+    body.fullshot .cursor { display: none; }
+    .hud {
+      position: absolute;
+      left: 50%;
+      top: 52px;
+      transform: translateX(-50%);
+      width: 380px;
+      background: var(--card);
+      color: #fff;
+      border-radius: 12px;
+      padding: 7px 10px 8px;
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 18px 40px rgba(0,0,0,.22);
+      overflow: hidden;
+      animation: expand 10s ease-in-out infinite;
+    }
+    .row { display: flex; align-items: baseline; gap: 6px; }
+    .score { font: 600 15px/1.1 ui-rounded, "SF Pro Rounded", system-ui; font-variant-numeric: tabular-nums; }
+    .who { font: 500 11px/1 system-ui; color: rgba(255,255,255,.38); }
+    .vs { font: 600 10px/1 system-ui; color: rgba(255,255,255,.2); margin: 0 2px; }
+    .dots { margin-left: auto; color: rgba(255,255,255,.4); letter-spacing: 1px; font-size: 12px; }
+    .ticks { display: flex; gap: 2px; margin-top: 5px; height: 7px; }
+    .ticks i {
+      flex: 1;
+      border-radius: 2px;
+      background: rgba(255,255,255,.12);
+    }
+    .ticks i.on { background: #fff; }
+    .ticks i.pulse { animation: pulse 1.1s ease-in-out infinite; }
+
+    .full { opacity: 0; max-height: 0; }
+    .head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .title { font: 600 12px/1 system-ui; }
+    .headline { font: 400 11px/1.2 system-ui; color: rgba(255,255,255,.38); white-space: nowrap; overflow: hidden; }
+    .big { display: flex; align-items: baseline; gap: 8px; margin: 8px 0 10px; }
+    .big .n { font: 600 26px/1 ui-rounded, system-ui; font-variant-numeric: tabular-nums; }
+    .big .g { font: 500 13px/1 system-ui; color: rgba(255,255,255,.3); }
+    .pill { font: 600 10px/1 system-ui; padding: 3px 6px; border-radius: 99px; background: rgba(255,255,255,.08); }
+    .track { margin: 4px 0 8px; }
+    .lab { display: flex; justify-content: space-between; font: 600 10px/1 system-ui; color: rgba(255,255,255,.5); margin-bottom: 3px; }
+    .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; margin: 10px 0; text-align: center; }
+    .week b { display: block; width: 12px; height: 4px; border-radius: 99px; background: rgba(255,255,255,.12); margin: 0 auto 4px; }
+    .week b.hot { background: #fff; }
+    .week span { font: 500 9px/1 system-ui; color: rgba(255,255,255,.38); }
+    .week .today span { color: rgba(255,255,255,.78); font-weight: 600; }
+    .pr { font: 500 11px/1.25 system-ui; color: rgba(255,255,255,.88); margin-top: 6px; }
+    .repo { font: 400 10px/1.2 ui-monospace, Menlo, monospace; color: rgba(255,255,255,.32); }
+
+    @keyframes expand {
+      0%, 12% { width: 380px; padding: 7px 10px 8px; border-radius: 12px; }
+      22%, 78% { width: 380px; padding: 12px 14px; border-radius: 16px; }
+      88%, 100% { width: 380px; padding: 7px 10px 8px; border-radius: 12px; }
+    }
+    @keyframes showFull {
+      0%, 14% { opacity: 0; max-height: 0; }
+      24%, 76% { opacity: 1; max-height: 240px; }
+      86%, 100% { opacity: 0; max-height: 0; }
+    }
+    @keyframes hideMini {
+      0%, 14% { opacity: 1; max-height: 40px; }
+      22%, 78% { opacity: 0; max-height: 0; }
+      88%, 100% { opacity: 1; max-height: 40px; }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: .55; transform: scaleY(.85); }
+      50% { opacity: 1; transform: scaleY(1.15); }
+    }
+    .mini { animation: hideMini 10s ease-in-out infinite; overflow: hidden; }
+    .full { animation: showFull 10s ease-in-out infinite; overflow: hidden; }
+    .cursor {
+      position: absolute;
+      width: 16px; height: 16px;
+      left: 720px; top: 40px;
+      animation: cursor 10s ease-in-out infinite;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+    }
+    @keyframes cursor {
+      0% { transform: translate(0,0); }
+      16% { transform: translate(-40px, 28px); }
+      80% { transform: translate(-20px, 90px); }
+      100% { transform: translate(0,0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="desk">
+    <div class="menubar">
+      <div>Fri 19 · Finder  File  Edit  View</div>
+      <div>12/50  ☀  14:32</div>
+    </div>
+    <div class="hud">
+      <div class="mini">
+        <div class="row">
+          <span class="score" id="youMini">3</span>
+          <span class="who">you</span>
+          <span class="vs">vs</span>
+          <span class="who">ion</span>
+          <span class="score" id="themMini">2</span>
+          <span class="dots">⋯</span>
+        </div>
+        <div class="ticks" id="miniTicks"></div>
+      </div>
+      <div class="full">
+        <div class="head">
+          <div class="title">Today</div>
+          <div class="headline">You’re up 1 on @ion</div>
+          <div class="dots">⋯</div>
+        </div>
+        <div class="big">
+          <div class="n" id="youBig">3</div>
+          <div class="g">/50</div>
+          <div class="pill">↗ 3</div>
+          <div class="who">vs yesterday</div>
+        </div>
+        <div class="track">
+          <div class="lab"><span>you</span><span id="youLab">3</span></div>
+          <div class="ticks" id="youTicks"></div>
+        </div>
+        <div class="track">
+          <div class="lab"><span>ion</span><span id="themLab">2</span></div>
+          <div class="ticks" id="themTicks"></div>
+        </div>
+        <div class="week">
+          <div><b></b><span>Thu</span></div>
+          <div><b></b><span>Fri</span></div>
+          <div><b></b><span>Sat</span></div>
+          <div><b></b><span>Sun</span></div>
+          <div><b class="hot"></b><span>Mon</span></div>
+          <div><b class="hot"></b><span>Tue</span></div>
+          <div class="today"><b class="hot"></b><span>Wed</span></div>
+        </div>
+        <div class="pr">feat(sequencer): client-24 product cutover path</div>
+        <div class="repo">Ken-Technology/ken-backend</div>
+      </div>
+    </div>
+    <svg class="cursor" viewBox="0 0 16 16">
+      <path fill="#fff" stroke="#111" stroke-width=".8" d="M2 1.5 L2 13.2 L5.2 10.4 L7.4 15.1 L9.2 14.3 L7 9.5 L11.6 9.5 Z"/>
+    </svg>
+  </div>
+  <script>
+    function ticks(el, filled, pulseLast) {
+      el.innerHTML = "";
+      for (let i = 0; i < 22; i++) {
+        const n = document.createElement("i");
+        if (i < filled) n.classList.add("on");
+        if (pulseLast && i === filled - 1) n.classList.add("pulse");
+        el.appendChild(n);
+      }
+    }
+    ticks(document.getElementById("miniTicks"), 2, true);
+    ticks(document.getElementById("youTicks"), 3, true);
+    ticks(document.getElementById("themTicks"), 2, false);
+
+    let you = 3, them = 2;
+    setInterval(() => {
+      you = you === 3 ? 4 : 3;
+      document.getElementById("youMini").textContent = you;
+      document.getElementById("youBig").textContent = you;
+      document.getElementById("youLab").textContent = you;
+      ticks(document.getElementById("miniTicks"), you, true);
+      ticks(document.getElementById("youTicks"), you, true);
+    }, 5000);
+  </script>
+</body>
+</html>

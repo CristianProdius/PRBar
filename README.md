@@ -38,6 +38,12 @@ If you skip `-derivedDataPath`, Xcode writes the app under `~/Library/Developer/
 
 The goal counts **your merges only**. A rival’s private PRs appear only if your token can see those repos.
 
+## Demo
+
+Open `demo/index.html` in a browser for a looping mock of the HUD (compact → hover expand). A 6s clip is at `demo/prbar-demo.mp4`.
+
+To record the real app: QuickTime Player → File → New Screen Recording, then hover the strip.
+
 ## License
 
 MIT
