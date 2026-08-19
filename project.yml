@@ -1,0 +1,57 @@
+name: PRBar
+options:
+  bundleIdPrefix: com.prodius
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  minimumXcodeGenVersion: "2.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    PRODUCT_BUNDLE_IDENTIFIER: com.prodius.prbar
+    PRODUCT_NAME: PRBar
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_LSUIElement: YES
+    INFOPLIST_KEY_CFBundleDisplayName: PRBar
+    INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 37LM4S5FPP
+
+targets:
+  PRBar:
+    type: application
+    platform: macOS
+    sources:
+      - path: PRBar
+        excludes:
+          - "*.entitlements"
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: PRBar/PRBar.entitlements
+        INFOPLIST_KEY_LSUIElement: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+        ENABLE_TESTABILITY: YES
+    entitlements:
+      path: PRBar/PRBar.entitlements
+    scheme:
+      testTargets:
+        - PRBarTests
+
+  PRBarTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: PRBarTests
+      - path: PRBar/Models.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.prodius.prbar.tests
+        PRODUCT_NAME: PRBarTests
+        PRODUCT_MODULE_NAME: PRBarTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: ""
